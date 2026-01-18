@@ -1,0 +1,67 @@
+?start: item+
+
+CIRCA: "ca."
+NUMBER: /[0-9]+/
+RANGE: /[0-9]+-[0-9]+/
+LIN: "lin"
+UNIT: LIN | "char"
+DOT: "."
+UNCERTAIN: "(?)"
+
+vacat: "vac." [CIRCA] (RANGE | NUMBER | "?") [UNIT]
+lines_lost: "lost." [CIRCA] (RANGE | NUMBER | "?") "lin"
+illegible: "." [CIRCA] (RANGE | NUMBER | "?") [LIN]
+vestiges: "vestig" [DOT] [CIRCA] [(RANGE | NUMBER | "?")] [LIN]
+text: /[a-zAZΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
+
+?item: line
+    | vacat
+    | add_above
+    | add_below
+    | add_left
+    | add_right
+    | add_interlin
+    | add_sling
+    | add_underline
+    | box
+    | tall
+    | superscripted
+    | subscripted
+    | supraline
+    | supraline_underline
+    | lines_lost
+    | illegible
+    | vestiges
+    | omitted
+    | surplus
+    | deletion
+    | abbreviation
+    | characters_supplied
+    | characters_lost
+    | parallel
+    | text
+
+line: [NUMBER]"."
+add_above: "\\" item+ "/"
+add_below: "//" item+ "\\"
+add_left: "||left:" item+ "||"
+add_right: "||right:" item+ "||"
+add_interlin: "||interlin:" item+ "||"
+add_sling: "<|" item+ "|>"
+add_underline: "<_" item+ "_>"
+box: "###"
+tall: "~||" item+ "||~tall"
+superscripted: "|^" item+ "^|"
+subscripted: "\\|" item+ "|/"
+supraline: "¯" item+ "¯"
+supraline_underline: "¯_" item+ "_¯"
+omitted: "<" text+ [UNCERTAIN] ">"
+surplus: "{" item+ "}"
+deletion: "〚" item+ "〛"
+abbreviation: "(|" item+ "|)"
+characters_supplied: "[" text+ [UNCERTAIN] "]"
+characters_lost: "[." [CIRCA] (RANGE | NUMBER | "?") "]"
+parallel: "|_" item+ "_|"
+
+%import common.WS
+%ignore WS

@@ -49,8 +49,7 @@ class MyPlainTextEdit(QPlainTextEdit):
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self.line_text = self.get_current_line_text()
-            self.parser.text = self.toPlainText()
-            self.parser.parse()
+            self.parser.parse(self.toPlainText())
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
