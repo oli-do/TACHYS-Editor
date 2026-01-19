@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QRegExp, Qt
 from PyQt5.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QAction, QFontDialog, QDesktopWidget, \
-    QMessageBox, QListWidget
+    QMessageBox
 from PyQt5.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor
 from parser import LeidenParser
 import sys
@@ -10,7 +10,7 @@ import re
 class PythonHighlighter(QSyntaxHighlighter):
     def __init__(self, document):
         super().__init__(document)
-        self.greek_pattern = '\u0370-\u03FF\u1F00-\u1FFF\u0300-\u036F'
+        self.greek_pattern = '"ΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ"'
         self.highlighting_rules = []
         div_format = QTextCharFormat()
         div_format.setForeground(QColor("blue"))
@@ -50,6 +50,7 @@ class MyPlainTextEdit(QPlainTextEdit):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self.line_text = self.get_current_line_text()
             self.parser.parse(self.toPlainText())
+            print(self.parser.errors)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):

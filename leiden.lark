@@ -6,13 +6,15 @@ RANGE: /[0-9]+-[0-9]+/
 LIN: "lin"
 UNIT: LIN | "char"
 DOT: "."
+ALLOWED_TEXT: /[,.ΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
+UNDERDOT_CHAR: ALLOWED_TEXT "\u0323"
 UNCERTAIN: "(?)"
 
 vacat: "vac." [CIRCA] (RANGE | NUMBER | "?") [UNIT]
 lines_lost: "lost." [CIRCA] (RANGE | NUMBER | "?") "lin"
 illegible: "." [CIRCA] (RANGE | NUMBER | "?") [LIN]
 vestiges: "vestig" [DOT] [CIRCA] [(RANGE | NUMBER | "?")] [LIN]
-text: /[a-zAZΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
+text: ALLOWED_TEXT+
 
 ?item: line
     | vacat
@@ -40,6 +42,7 @@ text: /[a-zAZΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄ�
     | characters_lost
     | parallel
     | text
+    | unclear
 
 line: [NUMBER]"."
 add_above: "\\" item+ "/"
@@ -62,6 +65,7 @@ abbreviation: "(|" item+ "|)"
 characters_supplied: "[" text+ [UNCERTAIN] "]"
 characters_lost: "[." [CIRCA] (RANGE | NUMBER | "?") "]"
 parallel: "|_" item+ "_|"
+unclear: UNDERDOT_CHAR+
 
 %import common.WS
 %ignore WS
