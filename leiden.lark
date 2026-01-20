@@ -1,14 +1,32 @@
-?start: item+
+?start: file_start
+file_start: default_language (superdiv | div)
+superdiv: div_start (superdiv | div)+ DIV_CLOSE
+div: div_start TEXTBLOCK_OPEN item+ TEXTBLOCK_CLOSE DIV_CLOSE
+div_start: DIV_OPEN "." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE]
 
+// TEXT DIVISON
+DIV_OPEN: "<D="
+DIV_CLOSE: "=D>"
+TEXTBLOCK_OPEN: "<="
+TEXTBLOCK_CLOSE: "=>"
+RECTO: "r"
+VERSO: "v"
+SUBTYPE: "fragment" | "part" | "column" | "folio" | "side"
+
+// TERMINALS FOR ITEMS
 CIRCA: "ca."
 NUMBER: /[0-9]+/
 RANGE: /[0-9]+-[0-9]+/
-LIN: "lin"
+LIN: "lin" | "lines"
 UNIT: LIN | "char"
 DOT: "."
+LB: "-"
 ALLOWED_TEXT: /[,.ΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
 UNDERDOT_CHAR: ALLOWED_TEXT "\u0323"
-UNCERTAIN: "(?)"
+UNCERTAIN: "(?)" | "?"
+NAME: /[a-zA-Z]+/
+NAME_OR_NUMBER: /[a-zA-Z0-9]+/
+LANG: "grc" | "ar" | "cop" | "egy-Egyd" | "la" | "grc-Latn" | "la-Grek"
 
 vacat: "vac." [CIRCA] (RANGE | NUMBER | "?") [UNIT]
 lines_lost: "lost." [CIRCA] (RANGE | NUMBER | "?") "lin"
@@ -43,8 +61,11 @@ text: ALLOWED_TEXT+
     | parallel
     | text
     | unclear
+    | default_language
+    | non_default_language
+    | omitted_language
 
-line: [NUMBER]"."
+line: NUMBER "." [LB]
 add_above: "\\" item+ "/"
 add_below: "//" item+ "\\"
 add_left: "||left:" item+ "||"
@@ -63,9 +84,12 @@ surplus: "{" item+ "}"
 deletion: "〚" item+ "〛"
 abbreviation: "(|" item+ "|)"
 characters_supplied: "[" text+ [UNCERTAIN] "]"
-characters_lost: "[." [CIRCA] (RANGE | NUMBER | "?") "]"
+characters_lost: "[." [CIRCA] (RANGE | NUMBER | UNCERTAIN) "]"
 parallel: "|_" item+ "_|"
 unclear: UNDERDOT_CHAR+
+default_language: "<S=." LANG
+non_default_language: "~|" text+ "|~" LANG
+omitted_language: "(Lang: "NAME [CIRCA] (NUMBER | UNCERTAIN) UNIT ")"
 
 %import common.WS
 %ignore WS

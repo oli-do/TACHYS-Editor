@@ -16,28 +16,28 @@ class LeidenParser:
 
     def error_handler(self, e):
         if isinstance(e, exceptions.UnexpectedCharacters):
-            self.errors.append(ParserError(e.__class__.__name__, self.index, e.column, e.char, None))
+            self.errors.append(ParserError(e.__class__.__name__, e.line, e.column, e.char, None))
         elif isinstance(e, exceptions.UnexpectedToken):
-            self.errors.append(ParserError(e.__class__.__name__, self.index, e.column, None, e.expected))
-        else:
-            return False
+            self.errors.append(ParserError(e.__class__.__name__, e.line, e.column, None, e.expected))
         return True
 
     def parse(self, text):
-        lines = text.splitlines()
-        for i in range(len(lines)):
-            self.index = i
-            line = lines[i]
-            print(line)
-            if "=" in line:
-                continue
-            with open('leiden.lark', 'r', encoding='utf-8') as file:
-                leiden_grammar = file.read()
+        self.errors = []
+        with open('leiden.lark', 'r', encoding='utf-8') as file:
+            leiden_grammar = file.read()
+        parser = Lark(leiden_grammar, parser='lalr')
+        try:
+            parser.parse(text, on_error=self.error_handler)
+        except exceptions.UnexpectedCharacters:
+            pass
+        except exceptions.UnexpectedToken:
+            pass
 
-                parser = Lark(leiden_grammar, parser='lalr')
-            try:
-                tree = parser.parse(line, on_error=self.error_handler)
-            except exceptions.UnexpectedCharacters:
-                pass
-            except exceptions.UnexpectedToken:
-                pass
+if __name__ == '__main__':
+    parser = LeidenParser()
+    parser.parse('''
+<S=.grc
+<D=.1.fragment<=
+1. 
+=>=D>
+    ''')

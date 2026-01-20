@@ -1,10 +1,45 @@
-from PyQt5.QtCore import QRegExp, Qt
+from PyQt5.QtCore import QRegExp, Qt, QThread, pyqtSignal, QTimer
 from PyQt5.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QAction, QFontDialog, QDesktopWidget, \
     QMessageBox
 from PyQt5.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor
 from parser import LeidenParser
 import sys
 import re
+
+
+def catch_exceptions(exctype, value, traceback):
+    print("An exception occurred:")
+    sys.__excepthook__(exctype, value, traceback)
+    sys.exit(1)
+
+sys.excepthook = catch_exceptions
+
+
+class DebugWorker(QThread):
+    syntax_errors: pyqtSignal = pyqtSignal(list)
+
+    def __init__(self, parser: LeidenParser):
+        super().__init__()
+        self.parser = parser
+        self.text = ''
+        self.previous_text = ''
+        self._is_running = True
+
+    def run(self):
+        while self._is_running:
+            if self.text != self.previous_text:
+                print('Parsing text')
+                self.parser.parse(self.text)
+                error_positions = [(error.line, error.column) for error in self.parser.errors]
+                self.syntax_errors.emit(error_positions)
+                self.previous_text = self.text
+            self.msleep(500)
+
+    def set_text(self, text):
+        self.text = text
+
+    def stop(self):
+        self._is_running = False
 
 
 class PythonHighlighter(QSyntaxHighlighter):
@@ -28,6 +63,8 @@ class PythonHighlighter(QSyntaxHighlighter):
         self.highlighting_rules.append((r'\*[a-z\-]+\*', special_format))
         self.highlighting_rules.append((r'\[[a-z\.\-\?0-9]+\]', special_format))
         self.highlighting_rules.append((r'[\[\]]', special_format))
+        self.do_error_highlighting = False
+        self.parser_errors = []
 
     def highlightBlock(self, text):
         for pattern, formatting in self.highlighting_rules:
@@ -37,26 +74,37 @@ class PythonHighlighter(QSyntaxHighlighter):
                 length = expression.matchedLength()
                 self.setFormat(index, length, formatting)
                 index = expression.indexIn(text, index + length)
+        if self.do_error_highlighting:
+            for error in self.parser_errors:
+                line, column = error
+                if self.currentBlock().blockNumber() == line - 1:
+                    error_format = QTextCharFormat()
+                    error_format.setUnderlineColor(QColor("red"))
+                    error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SpellCheckUnderline)
+                    self.setFormat(column - 1, len(text) - column + 1, error_format)
+
+    def update_error_highlighting(self, error_data):
+        self.do_error_highlighting = True
+        self.parser_errors = list(error_data)
+        self.rehighlight()
+        self.do_error_highlighting = False
 
 
 class MyPlainTextEdit(QPlainTextEdit):
     def __init__(self, suggestions):
         super().__init__()
         self.line_text = ''
-        self.parser = LeidenParser()
         self.suggestions = suggestions
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             self.line_text = self.get_current_line_text()
-            self.parser.parse(self.toPlainText())
-            print(self.parser.errors)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             line_text = self.line_text
-            if re.findall(r'^[0-9]+\. ', line_text):
+            if re.findall(r'^[0-9]+\.-?', line_text):
                 line_number = int(re.findall(r'[0-9]+', line_text)[0])
                 cursor = self.textCursor()
                 cursor.insertText(f'{line_number + 1}. ')
@@ -101,6 +149,24 @@ class CodeEditor(QMainWindow):
         self.setWindowTitle("Leiden+ Editor")
         self.resize(self.screen_width, self.screen_height)
         self.init_ui()
+        self.parser = LeidenParser()
+        self.worker = DebugWorker(parser=self.parser)
+        self.worker.syntax_errors.connect(self.highlight_errors)
+        self.syntax_check_timer = QTimer(self)
+        self.syntax_check_timer.timeout.connect(self.push_text_to_worker)
+        QTimer.singleShot(2000, self.activate_debugging)
+
+
+    def highlight_errors(self, error_data):
+        self.highlighter.update_error_highlighting(error_data)
+
+    def activate_debugging(self):
+        self.worker.start()
+        self.syntax_check_timer.start(2000)
+        self.push_text_to_worker()
+
+    def push_text_to_worker(self):
+        self.worker.set_text(self.editor.toPlainText())
 
     def init_ui(self):
         self.set_cursor_position(3, 3)
