@@ -1,5 +1,5 @@
 ?start: file_start
-file_start: default_language (superdiv | div)
+file_start: default_language (superdiv | div)+
 superdiv: div_start (superdiv | div)+ DIV_CLOSE
 div: div_start TEXTBLOCK_OPEN item+ TEXTBLOCK_CLOSE DIV_CLOSE
 div_start: DIV_OPEN "." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE]
@@ -21,7 +21,7 @@ LIN: "lin" | "lines"
 UNIT: LIN | "char"
 DOT: "."
 LB: "-"
-ALLOWED_TEXT: /[,.ΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
+ALLOWED_TEXT: /[,.α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
 UNDERDOT_CHAR: ALLOWED_TEXT "\u0323"
 UNCERTAIN: "(?)" | "?"
 NAME: /[a-zA-Z]+/
@@ -79,11 +79,11 @@ superscripted: "|^" item+ "^|"
 subscripted: "\\|" item+ "|/"
 supraline: "¯" item+ "¯"
 supraline_underline: "¯_" item+ "_¯"
-omitted: "<" text+ [UNCERTAIN] ">"
-surplus: "{" item+ "}"
-deletion: "〚" item+ "〛"
+omitted: "<" (text | unclear)+ [UNCERTAIN] ">"
+surplus: "{" (text | unclear)+ "}"
+deletion: "〚" (text | unclear)+ "〛"
 abbreviation: "(|" item+ "|)"
-characters_supplied: "[" text+ [UNCERTAIN] "]"
+characters_supplied: "[" item+ [UNCERTAIN] "]"
 characters_lost: "[." [CIRCA] (RANGE | NUMBER | UNCERTAIN) "]"
 parallel: "|_" item+ "_|"
 unclear: UNDERDOT_CHAR+
