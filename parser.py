@@ -32,12 +32,3 @@ class LeidenParser:
             pass
         except exceptions.UnexpectedToken:
             pass
-
-if __name__ == '__main__':
-    parser = LeidenParser()
-    parser.parse('''
-<S=.grc
-<D=.1.fragment<=
-1. 
-=>=D>
-    ''')

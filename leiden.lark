@@ -21,18 +21,25 @@ LIN: "lin" | "lines"
 UNIT: LIN | "char"
 DOT: "."
 LB: "-"
-ALLOWED_TEXT: /[,.α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ]/
+ALLOWED_TEXT: /[α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
+TEXT_SPECIAL_CHARS: /[ ,·]+/
 UNDERDOT_CHAR: ALLOWED_TEXT "\u0323"
 UNCERTAIN: "(?)" | "?"
 NAME: /[a-zA-Z]+/
+NAME_HYPHEN: /[a-zA-Z\-]+/
 NAME_OR_NUMBER: /[a-zA-Z0-9]+/
 LANG: "grc" | "ar" | "cop" | "egy-Egyd" | "la" | "grc-Latn" | "la-Grek"
+APP_MODE: "reg" | "alt" | "subst" | "corr" | "ed"
 
 vacat: "vac." [CIRCA] (RANGE | NUMBER | "?") [UNIT]
 lines_lost: "lost." [CIRCA] (RANGE | NUMBER | "?") "lin"
+text: (ALLOWED_TEXT | TEXT_SPECIAL_CHARS)+
 illegible: "." [CIRCA] (RANGE | NUMBER | "?") [LIN]
+full_stop: DOT
 vestiges: "vestig" [DOT] [CIRCA] [(RANGE | NUMBER | "?")] [LIN]
-text: ALLOWED_TEXT+
+ex: "(" ALLOWED_TEXT ")"
+apparatus: "<:" item+ "|" APP_MODE "|" item+ ":>"
+symbol: "*" NAME_HYPHEN "*"
 
 ?item: line
     | vacat
@@ -64,7 +71,12 @@ text: ALLOWED_TEXT+
     | default_language
     | non_default_language
     | omitted_language
+    | full_stop
+    | expansion
+    | apparatus
+    | symbol
 
+expansion: "("[ex+] item+ [ex+] ")"
 line: NUMBER "." [LB]
 add_above: "\\" item+ "/"
 add_below: "//" item+ "\\"

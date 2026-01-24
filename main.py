@@ -3,8 +3,11 @@ from PyQt5.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QAction, 
     QMessageBox
 from PyQt5.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor
 from parser import LeidenParser
+from shared import greek_pattern
+from addon import PasteManager
 import sys
 import re
+import pyperclip
 
 
 def catch_exceptions(exctype, value, traceback):
@@ -44,16 +47,35 @@ class DebugWorker(QThread):
 class PythonHighlighter(QSyntaxHighlighter):
     def __init__(self, document):
         super().__init__(document)
-        self.greek_pattern = 'α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬςϲϹ'
+        self.greek_pattern = greek_pattern
         self.highlighting_rules = []
         self.set_highlighting_rules()
         self.do_error_highlighting = False
         self.parser_errors = []
 
     def set_highlighting_rules(self):
+        # line numbers
+        line_format = QTextCharFormat()
+        line_format.setForeground(QColor('darkBlue'))
+        self.highlighting_rules.append((r'^[0-9]+\.\-?', line_format))
+        # default Greek text
+        text_format = QTextCharFormat()
+        text_format.setForeground(QColor('black'))
+        self.highlighting_rules.append((f'[{self.greek_pattern} ]+', text_format))
+        # special = symbol, supplied characters + lost characters, deletion
+        special_format = QTextCharFormat()
+        special_format.setForeground(QColor("green"))
+        self.highlighting_rules.append((r'\*[a-zA-Z\-]+\*', special_format))
+        self.highlighting_rules.append((r'\[[' + self.greek_pattern + r' \.\-\?0-9]+\]', special_format))
+        self.highlighting_rules.append((f'〚[{self.greek_pattern}]+〛', special_format))
+        self.highlighting_rules.append((r'\.[0-9\?]+-?[0-9]*', special_format))
+        self.highlighting_rules.append((f'<[{self.greek_pattern}]+>', special_format))
+        self.highlighting_rules.append((r'\{[' + self.greek_pattern + r']+\}', special_format))
+        self.highlighting_rules.append((r'\([' + self.greek_pattern + r']+\)', special_format))
+        self.highlighting_rules.append((r'[' + self.greek_pattern + ']\u0323', special_format))
         # div
         div_format = QTextCharFormat()
-        div_format.setForeground(QColor("blue"))
+        div_format.setForeground(QColor("darkBlue"))
         self.highlighting_rules.append((r'<D=.+<=', div_format))
         self.highlighting_rules.append((r'=>=D>', div_format))
         # super_div
@@ -61,20 +83,10 @@ class PythonHighlighter(QSyntaxHighlighter):
         super_div_format.setForeground(QColor("purple"))
         self.highlighting_rules.append((r'<D=.[0-9a-z\.]+$', super_div_format))
         self.highlighting_rules.append((r'^=D>$', super_div_format))
-        # line numbers
-        line_format = QTextCharFormat()
-        line_format.setForeground(QColor('darkGreen'))
-        self.highlighting_rules.append((r'^[0-9]+\.\-?', line_format))
-        # default greek text
-        text_format = QTextCharFormat()
-        text_format.setForeground(QColor('darkCyan'))
-        self.highlighting_rules.append((f'[{self.greek_pattern} ]+', text_format))
-        # special = symbol, supplied characters + lost characters, deletion
-        special_format = QTextCharFormat()
-        special_format.setForeground(QColor("orange"))
-        self.highlighting_rules.append((r'\*[α-zA-Z}\-]+\*', special_format))
-        self.highlighting_rules.append((r'\[[' + self.greek_pattern + r' \.\-\?0-9]+\]', special_format))
-        self.highlighting_rules.append((f'〚[{self.greek_pattern}]+〛', special_format))
+        # default language
+        def_lang_format = QTextCharFormat()
+        def_lang_format.setForeground(QColor("purple"))
+        self.highlighting_rules.append((r'<S=\.[a-zA-Z-]+', def_lang_format))
 
     def highlightBlock(self, text):
         for pattern, formatting in self.highlighting_rules:
@@ -105,27 +117,42 @@ class MyPlainTextEdit(QPlainTextEdit):
         super().__init__()
         self.line_text = ''
         self.suggestions = suggestions
+        self.line_break = False
+        self.paste_mgr = PasteManager()
 
     def keyPressEvent(self, event):
+        cursor = self.textCursor()
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
-            self.line_text = self.get_current_line_text()
+            self.line_text = self.get_current_line_text().strip()
+            cursor.beginEditBlock()
+            if self.line_text[-1] == '-' and cursor.atBlockEnd():
+                self.line_break = True
+                cursor.deletePreviousChar()
         elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_Period):
-            cursor = self.textCursor()
             cursor.insertText('\u0323')
         elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_D):
-            cursor = self.textCursor()
             cursor.insertText('〚〛')
             cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
             self.setTextCursor(cursor)
+        elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_V):
+            # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
+            clipboard_text = pyperclip.paste()
+            clipboard_text = self.paste_mgr.replace_lunate_sigma(clipboard_text)
+            clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
+            pyperclip.copy(clipboard_text)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
+        cursor = self.textCursor()
         if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
             line_text = self.line_text
-            cursor = self.textCursor()
             if re.findall(r'^[0-9]+\.-?', line_text):
                 line_number = int(re.findall(r'[0-9]+', line_text)[0])
-                cursor.insertText(f'{line_number + 1}. ')
+                if not self.line_break:
+                    cursor.insertText(f'{line_number + 1}. ')
+                else:
+                    cursor.insertText(f'{line_number + 1}.- ')
+                    self.line_break = False
             elif re.findall(r'=>=D>', line_text):
                 last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
                 div_type = re.findall(r'[a-z]+', last_div)[-1]
@@ -139,6 +166,19 @@ class MyPlainTextEdit(QPlainTextEdit):
                     cursor.insertText(f'<D=.1.fragment<=\n1. \n=>=D>')
                 cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
+            cursor.endEditBlock()
+        elif event.key() == Qt.Key_BracketLeft and cursor.atBlockEnd():
+            cursor.insertText(']')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+            self.setTextCursor(cursor)
+        elif event.key() == Qt.Key_ParenLeft and cursor.atBlockEnd():
+            cursor.insertText(')')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+            self.setTextCursor(cursor)
+        elif event.key() == Qt.Key_BraceLeft and cursor.atBlockEnd():
+            cursor.insertText('}')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+            self.setTextCursor(cursor)
         super().keyReleaseEvent(event)
 
     def get_current_line_text(self):
