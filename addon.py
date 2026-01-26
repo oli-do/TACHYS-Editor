@@ -12,7 +12,7 @@ class PasteManager:
             for i in range(len(word)):
                 foreshadow = word[i:len(word)]
                 char = word[i]
-                if char == 'ϲ':
+                if char == 'ϲ' or char == 'c':
                     if i == len(word) - 1:
                         new_word += 'ς'
                     elif i == 0:
@@ -23,6 +23,8 @@ class PasteManager:
                             new_word += 'σ'
                         else:
                             new_word += 'ς'
+                elif char == 'ϲ'.upper() or char == 'c'.upper():
+                    new_word += 'Σ'
                 else:
                     new_word += char
             new_words.append(new_word)

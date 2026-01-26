@@ -119,6 +119,7 @@ class MyPlainTextEdit(QPlainTextEdit):
         self.suggestions = suggestions
         self.line_break = False
         self.paste_mgr = PasteManager()
+        self.selected_text = ''
 
     def keyPressEvent(self, event):
         cursor = self.textCursor()
@@ -129,11 +130,27 @@ class MyPlainTextEdit(QPlainTextEdit):
                 self.line_break = True
                 cursor.deletePreviousChar()
         elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_Period):
-            cursor.insertText('\u0323')
+            if cursor.hasSelection():
+                replacement = ''
+                for char in cursor.selectedText():
+                    replacement += char + '\u0323'
+                cursor.insertText(replacement)
+            else:
+                cursor.insertText('\u0323')
+        elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_Minus):
+            if cursor.hasSelection():
+                cursor.insertText('¯' + cursor.selectedText() + '¯')
+            else:
+                cursor.insertText('\u0304')
         elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_D):
-            cursor.insertText('〚〛')
-            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
-            self.setTextCursor(cursor)
+            if cursor.hasSelection():
+                cursor.insertText('〚' + cursor.selectedText() + '〛')
+            else:
+                cursor.insertText('〚〛')
+                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+                self.setTextCursor(cursor)
+        elif event.key() == Qt.Key_BracketLeft or event.key() == Qt.Key_ParenLeft or event.key() == Qt.Key_BraceLeft:
+            self.selected_text = cursor.selectedText()
         elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_V):
             # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
             clipboard_text = pyperclip.paste()
@@ -167,18 +184,29 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
             cursor.endEditBlock()
-        elif event.key() == Qt.Key_BracketLeft and cursor.atBlockEnd():
-            cursor.insertText(']')
-            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_ParenLeft and cursor.atBlockEnd():
-            cursor.insertText(')')
-            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
-            self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_BraceLeft and cursor.atBlockEnd():
-            cursor.insertText('}')
-            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
-            self.setTextCursor(cursor)
+        elif event.key() == Qt.Key_BracketLeft:
+            if self.selected_text:
+                cursor.insertText(self.selected_text + ']')
+                self.selected_text = ''
+            elif cursor.atBlockEnd():
+                cursor.insertText(']')
+                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+                self.setTextCursor(cursor)
+        elif event.key() == Qt.Key_ParenLeft:
+            if self.selected_text:
+                cursor.insertText(self.selected_text + ')')
+                self.selected_text = ''
+            elif cursor.atBlockEnd():
+                cursor.insertText(')')
+                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+                self.setTextCursor(cursor)
+        elif event.key() == Qt.Key_BraceLeft:
+            if self.selected_text:
+                cursor.insertText(self.selected_text + '}')
+            elif cursor.atBlockEnd():
+                cursor.insertText('}')
+                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+                self.setTextCursor(cursor)
         super().keyReleaseEvent(event)
 
     def get_current_line_text(self):
@@ -232,9 +260,12 @@ class CodeEditor(QMainWindow):
         menubar.setFont(self.menu_font)
         # Create a File menu and add actions
         file_menu = menubar.addMenu('File')
-        new_action = QAction('New', self)
+        new_action = QAction('New\t(Ctrl + N)', self)
         new_action.triggered.connect(self.new_file)
+        save_action = QAction('Save\t(Ctrl + S)', self)
+        save_action.triggered.connect(self.save_file)
         file_menu.addAction(new_action)
+        file_menu.addAction(save_action)
 
     def set_cursor_position(self, line, column):
         cursor = self.editor.textCursor()
@@ -244,9 +275,11 @@ class CodeEditor(QMainWindow):
         self.editor.setTextCursor(cursor)
 
     def new_file(self):
-        QMessageBox.information(self, 'New File', 'New file action triggered.')
         self.editor.clear()
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
+
+    def save_file(self):
+        return
 
     def change_font(self):
         current_font = self.editor.font()

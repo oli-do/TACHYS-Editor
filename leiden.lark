@@ -13,7 +13,7 @@ RECTO: "r"
 VERSO: "v"
 SUBTYPE: "fragment" | "part" | "column" | "folio" | "side"
 
-// TERMINALS FOR ITEMS
+// QUANTIFIERS AND UNITS
 CIRCA: "ca."
 NUMBER: /[0-9]+/
 RANGE: /[0-9]+-[0-9]+/
@@ -21,25 +21,18 @@ LIN: "lin" | "lines"
 UNIT: LIN | "char"
 DOT: "."
 LB: "-"
+
+// TEXT AND SPECIAL CHARACTERS
 ALLOWED_TEXT: /[α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
 TEXT_SPECIAL_CHARS: /[ ,·]+/
 UNDERDOT_CHAR: ALLOWED_TEXT "\u0323"
-UNCERTAIN: "(?)" | "?"
+SUPRALINE_CHAR: ALLOWED_TEXT "\u0304"
+UNCERTAIN: "(\\?)" | "\\?"
 NAME: /[a-zA-Z]+/
 NAME_HYPHEN: /[a-zA-Z\-]+/
 NAME_OR_NUMBER: /[a-zA-Z0-9]+/
 LANG: "grc" | "ar" | "cop" | "egy-Egyd" | "la" | "grc-Latn" | "la-Grek"
-APP_MODE: "reg" | "alt" | "subst" | "corr" | "ed"
-
-vacat: "vac." [CIRCA] (RANGE | NUMBER | "?") [UNIT]
-lines_lost: "lost." [CIRCA] (RANGE | NUMBER | "?") "lin"
-text: (ALLOWED_TEXT | TEXT_SPECIAL_CHARS)+
-illegible: "." [CIRCA] (RANGE | NUMBER | "?") [LIN]
-full_stop: DOT
-vestiges: "vestig" [DOT] [CIRCA] [(RANGE | NUMBER | "?")] [LIN]
-ex: "(" ALLOWED_TEXT ")"
-apparatus: "<:" item+ "|" APP_MODE "|" item+ ":>"
-symbol: "*" NAME_HYPHEN "*"
+APP_MODE: "reg" | "alt" | "subst" | "corr"
 
 ?item: line
     | vacat
@@ -56,6 +49,7 @@ symbol: "*" NAME_HYPHEN "*"
     | subscripted
     | supraline
     | supraline_underline
+    | supralinear_stroke
     | lines_lost
     | illegible
     | vestiges
@@ -72,11 +66,25 @@ symbol: "*" NAME_HYPHEN "*"
     | non_default_language
     | omitted_language
     | full_stop
+    | ex
     | expansion
     | apparatus
     | symbol
+    | ancient_number
+    | drawing
+    | editorial_correction
+    | editorial_correction_multiple
+    | apparatus_multiple
 
-expansion: "("[ex+] item+ [ex+] ")"
+// MARKUP
+vacat: "vac." [CIRCA] (RANGE | NUMBER | "?") [UNIT]
+lines_lost: "lost." [CIRCA] (RANGE | NUMBER | "?") "lin"
+illegible: "." [CIRCA] (RANGE | NUMBER | "?") [LIN]
+full_stop: DOT
+vestiges: "vestig" [DOT] [CIRCA] [(RANGE | NUMBER | "?")] [LIN]
+ex: "(" ALLOWED_TEXT ")"
+ancient_number: "<#" (ALLOWED_TEXT | supralinear_stroke)+ "=" NUMBER "#>"
+expansion: "(" item+ ")"
 line: NUMBER "." [LB]
 add_above: "\\" item+ "/"
 add_below: "//" item+ "\\"
@@ -85,23 +93,39 @@ add_right: "||right:" item+ "||"
 add_interlin: "||interlin:" item+ "||"
 add_sling: "<|" item+ "|>"
 add_underline: "<_" item+ "_>"
-box: "###"
 tall: "~||" item+ "||~tall"
 superscripted: "|^" item+ "^|"
 subscripted: "\\|" item+ "|/"
+supralinear_stroke: SUPRALINE_CHAR+
 supraline: "¯" item+ "¯"
 supraline_underline: "¯_" item+ "_¯"
 omitted: "<" (text | unclear)+ [UNCERTAIN] ">"
 surplus: "{" (text | unclear)+ "}"
-deletion: "〚" (text | unclear)+ "〛"
+deletion: "〚" item+ "〛"
 abbreviation: "(|" item+ "|)"
 characters_supplied: "[" item+ [UNCERTAIN] "]"
-characters_lost: "[." [CIRCA] (RANGE | NUMBER | UNCERTAIN) "]"
+characters_lost: "[" (CIRCA | DOT) (RANGE | NUMBER | UNCERTAIN) "]"
 parallel: "|_" item+ "_|"
 unclear: UNDERDOT_CHAR+
+
+// APPARATUS
+apparatus: "<:" item+ "|" APP_MODE "|" item+ ":>"
+apparatus_multiple: "<:" item+ "||" APP_MODE "||" item+ ("|" item+)+ ":>"
+editorial_correction: "<:" item+ "|ed|" item+ ["=" NAME] ":>"
+editorial_correction_multiple: "<:" item+ "||ed||" item+ ["=" NAME] ("|" item+ ["=" NAME])+ ":>"
+
+// SYMBOLS
+symbol: "*" NAME_HYPHEN "*"
+drawing: "#" NAME_HYPHEN
+box: "###"
+
+// LANGUAGE
 default_language: "<S=." LANG
-non_default_language: "~|" text+ "|~" LANG
+non_default_language: "~|" text "|~" LANG
 omitted_language: "(Lang: "NAME [CIRCA] (NUMBER | UNCERTAIN) UNIT ")"
+
+// TEXT
+text: (ALLOWED_TEXT | TEXT_SPECIAL_CHARS)+
 
 %import common.WS
 %ignore WS
