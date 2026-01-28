@@ -8,6 +8,7 @@ from addon import PasteManager
 import sys
 import re
 import pyperclip
+import unicodedata
 
 
 def catch_exceptions(exctype, value, traceback):
@@ -154,6 +155,7 @@ class MyPlainTextEdit(QPlainTextEdit):
         elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_V):
             # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
             clipboard_text = pyperclip.paste()
+            clipboard_text = unicodedata.normalize('NFC', clipboard_text)
             clipboard_text = self.paste_mgr.replace_lunate_sigma(clipboard_text)
             clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
             pyperclip.copy(clipboard_text)
