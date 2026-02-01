@@ -1,7 +1,7 @@
-from PyQt5.QtCore import QRegExp, Qt, QThread, pyqtSignal, QTimer
-from PyQt5.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QAction, QFontDialog, QDesktopWidget, \
-    QMessageBox
-from PyQt5.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor
+from PyQt6.QtCore import QRegularExpression, Qt, QThread, pyqtSignal, QTimer
+from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QFontDialog, QMenu
+from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor, QAction
+from typing import Callable, AnyStr
 from parser import LeidenParser
 from shared import greek_pattern
 from addon import PasteManager
@@ -91,12 +91,14 @@ class PythonHighlighter(QSyntaxHighlighter):
 
     def highlightBlock(self, text):
         for pattern, formatting in self.highlighting_rules:
-            expression = QRegExp(pattern)
-            index = expression.indexIn(text)
+            expression = QRegularExpression(pattern)
+            match = expression.match(text)
+            index = match.capturedStart()
             while index >= 0:
-                length = expression.matchedLength()
+                length = match.capturedLength()
                 self.setFormat(index, length, formatting)
-                index = expression.indexIn(text, index + length)
+                match = expression.match(text, index + length)
+                index = match.capturedStart()
         if self.do_error_highlighting:
             for error in self.parser_errors:
                 line, column = error
@@ -124,13 +126,13 @@ class MyPlainTextEdit(QPlainTextEdit):
 
     def keyPressEvent(self, event):
         cursor = self.textCursor()
-        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+        if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
             self.line_text = self.get_current_line_text().strip()
             cursor.beginEditBlock()
-            if self.line_text[-1] == '-' and cursor.atBlockEnd():
+            if self.line_text[-1] == '-' and not self.line_text[-2:] == '--' and cursor.atBlockEnd():
                 self.line_break = True
                 cursor.deletePreviousChar()
-        elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_Period):
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_Period):
             if cursor.hasSelection():
                 replacement = ''
                 for char in cursor.selectedText():
@@ -138,43 +140,48 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.insertText(replacement)
             else:
                 cursor.insertText('\u0323')
-        elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_Minus):
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_Minus):
             if cursor.hasSelection():
                 cursor.insertText('¯' + cursor.selectedText() + '¯')
             else:
                 cursor.insertText('\u0304')
-        elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_D):
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_D):
             if cursor.hasSelection():
                 cursor.insertText('〚' + cursor.selectedText() + '〛')
             else:
                 cursor.insertText('〚〛')
                 cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_BracketLeft or event.key() == Qt.Key_ParenLeft or event.key() == Qt.Key_BraceLeft:
+        elif event.key() == Qt.Key.Key_BracketLeft or event.key() == Qt.Key.Key_ParenLeft or event.key() == Qt.Key.Key_BraceLeft:
             self.selected_text = cursor.selectedText()
-        elif (event.modifiers() & Qt.ControlModifier) and (event.key() == Qt.Key_V):
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_V):
             # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
             clipboard_text = pyperclip.paste()
             clipboard_text = unicodedata.normalize('NFC', clipboard_text)
             clipboard_text = self.paste_mgr.replace_lunate_sigma(clipboard_text)
             clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
+            clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
             pyperclip.copy(clipboard_text)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
         cursor = self.textCursor()
-        if event.key() == Qt.Key_Enter or event.key() == Qt.Key_Return:
+        if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
             line_text = self.line_text
             if re.findall(r'^[0-9]+\.-?', line_text):
                 line_number = int(re.findall(r'[0-9]+', line_text)[0])
-                if not self.line_break:
-                    cursor.insertText(f'{line_number + 1}. ')
-                else:
+                if self.line_break:
                     cursor.insertText(f'{line_number + 1}.- ')
                     self.line_break = False
+                else:
+                    cursor.insertText(f'{line_number + 1}. ')
+
             elif re.findall(r'=>=D>', line_text):
-                last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
-                div_type = re.findall(r'[a-z]+', last_div)[-1]
+                try:
+                    last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
+                    div_type = re.findall(r'[a-z]+', last_div)[-1]
+                except IndexError:
+                    return
                 if last_div:
                     try:
                         div_number = int(re.findall(r'[0-9]+', last_div)[0])
@@ -186,7 +193,7 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
             cursor.endEditBlock()
-        elif event.key() == Qt.Key_BracketLeft:
+        elif event.key() == Qt.Key.Key_BracketLeft:
             if self.selected_text:
                 cursor.insertText(self.selected_text + ']')
                 self.selected_text = ''
@@ -194,7 +201,7 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.insertText(']')
                 cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_ParenLeft:
+        elif event.key() == Qt.Key.Key_ParenLeft:
             if self.selected_text:
                 cursor.insertText(self.selected_text + ')')
                 self.selected_text = ''
@@ -202,7 +209,7 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.insertText(')')
                 cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
-        elif event.key() == Qt.Key_BraceLeft:
+        elif event.key() == Qt.Key.Key_BraceLeft:
             if self.selected_text:
                 cursor.insertText(self.selected_text + '}')
             elif cursor.atBlockEnd():
@@ -213,29 +220,33 @@ class MyPlainTextEdit(QPlainTextEdit):
 
     def get_current_line_text(self):
         cursor = self.textCursor()
-        cursor.select(QTextCursor.LineUnderCursor)
+        cursor.select(QTextCursor.SelectionType.LineUnderCursor)
         line_text = cursor.selectedText()
         return line_text
 
 
-class CodeEditor(QMainWindow):
+class LeidenEditor(QMainWindow):
     def __init__(self):
         super().__init__()
-        screen = QDesktopWidget().screenGeometry()
-        self.screen_width = round(0.75 * screen.width())
-        self.screen_height = round(0.75 * screen.height())
-        self.editor = MyPlainTextEdit(suggestions=['apple', 'apricot', 'banana'])
+        # Initialize Window
+        screen = app.primaryScreen()
+        size = screen.size()
+        self.screen_width = size.width()
+        self.screen_height = size.height()
+        self.width = round(0.75 * self.screen_width)
+        self.height = round(0.75 * self.screen_height)
+        # Initialize Editor
+        self.editor = MyPlainTextEdit(suggestions=[])
         self.setCentralWidget(self.editor)
         self.editor_font = QFont('Cardo')
-        self.editor_font.setPointSize(round(0.01 * self.screen_height))
-        self.menu_font = QFont()
-        self.menu_font.setPointSize(round(0.0075 * self.screen_height))
+        self.editor_font.setPointSize(round(0.011 * self.screen_height))
         self.editor.setFont(self.editor_font)
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
         self.highlighter = PythonHighlighter(self.editor.document())
         self.setWindowTitle("Leiden+ Editor")
-        self.resize(self.screen_width, self.screen_height)
+        self.resize(self.width, self.height)
         self.init_ui()
+        # Background Processes
         self.parser = LeidenParser()
         self.worker = DebugWorker(parser=self.parser)
         self.worker.syntax_errors.connect(self.highlight_errors)
@@ -257,23 +268,45 @@ class CodeEditor(QMainWindow):
 
     def init_ui(self):
         self.set_cursor_position(3, 3)
-        # Create a menu bar
+        # Menu Bar
         menubar = self.menuBar()
-        menubar.setFont(self.menu_font)
-        # Create a File menu and add actions
+        # File Menu
         file_menu = menubar.addMenu('File')
-        new_action = QAction('New\t(Ctrl + N)', self)
-        new_action.triggered.connect(self.new_file)
-        save_action = QAction('Save\t(Ctrl + S)', self)
-        save_action.triggered.connect(self.save_file)
-        file_menu.addAction(new_action)
-        file_menu.addAction(save_action)
+        self.add_menu_action(file_menu, 'New\n(Ctrl + N)', self.new_file, 'Ctrl+N')
+        self.add_menu_action(file_menu, 'Save\t(Ctrl + S)', self.save_file, 'Ctrl+S')
+        # Insert Menu
+        insert_menu = menubar.addMenu('Insert')
+        submenu_diacriticals = QMenu('Ancient Diacriticals', self)
+        self.add_menu_action(submenu_diacriticals, 'Acute', lambda: self.insert_str('´'))
+        self.add_menu_action(submenu_diacriticals, 'Asper', lambda: self.insert_str('῾'))
+        self.add_menu_action(submenu_diacriticals, 'Circumflex', lambda: self.insert_str('^'))
+        self.add_menu_action(submenu_diacriticals, 'Diaresis', lambda: self.insert_str('¨'))
+        self.add_menu_action(submenu_diacriticals, 'Grave', lambda: self.insert_str('`'))
+        self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str('᾿'))
+        insert_menu.addMenu(submenu_diacriticals)
+        self.add_menu_action(insert_menu, 'Deletion\t(Ctrl + D)', lambda: self.insert_str('〚〛'))
+        self.add_menu_action(insert_menu, 'Paragraphos\t(Ctrl + P])', lambda: self.insert_str('----'), 'Ctrl+P')
+        self.add_menu_action(insert_menu, 'Supralinear Stroke\t(Ctrl + [MINUS])', lambda: self.insert_str('\u0304'))
+        self.add_menu_action(insert_menu, 'Underdot\t(Ctrl + [PERIOD])', lambda: self.insert_str('\u0323'))
+
+    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None):
+        action = QAction(action_name, self)
+        if shortcut:
+            action.setShortcut(shortcut)
+        if action_connector:
+            action.triggered.connect(action_connector)
+        menu.addAction(action)
+        return action
+
+    def insert_str(self, string: str):
+        cursor = self.editor.textCursor()
+        cursor.insertText(string)
 
     def set_cursor_position(self, line, column):
         cursor = self.editor.textCursor()
-        cursor.movePosition(QTextCursor.Start)
-        cursor.movePosition(QTextCursor.Down, QTextCursor.MoveAnchor, line - 1)
-        cursor.movePosition(QTextCursor.Right, QTextCursor.MoveAnchor, column)
+        cursor.movePosition(QTextCursor.MoveOperation.Start)
+        cursor.movePosition(QTextCursor.MoveOperation.Down, QTextCursor.MoveMode.MoveAnchor, line - 1)
+        cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, column)
         self.editor.setTextCursor(cursor)
 
     def new_file(self):
@@ -292,6 +325,6 @@ class CodeEditor(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    editor = CodeEditor()
+    editor = LeidenEditor()
     editor.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
