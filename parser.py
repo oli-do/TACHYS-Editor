@@ -1,5 +1,6 @@
 from lark import Lark, exceptions
 from dataclasses import dataclass
+import unicodedata
 
 @dataclass
 class ParserError:
@@ -22,13 +23,17 @@ class LeidenParser:
         return True
 
     def parse(self, text):
+        text = unicodedata.normalize('NFD', text)
+        print('\n### PARSE ###')
         self.errors = []
-        with open('leiden.lark', 'r', encoding='utf-8') as file:
+        with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
         parser = Lark(leiden_grammar, parser='lalr')
         try:
-            parser.parse(text, on_error=self.error_handler)
+            tree = parser.parse(text, on_error=self.error_handler)
+            print(f'TREE\n{tree}')
         except exceptions.UnexpectedCharacters:
             pass
         except exceptions.UnexpectedToken:
             pass
+        print(f'ERRORS\n{self.errors}')
