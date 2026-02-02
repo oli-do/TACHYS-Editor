@@ -1,12 +1,13 @@
 from PyQt6.QtCore import QRegularExpression, Qt, QThread, pyqtSignal, QTimer
 from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QFontDialog, QMenu
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor, QAction
-from typing import Callable, AnyStr
+from typing import Callable
 from parser import LeidenParser
 from shared import greek_pattern
-from addon import PasteManager
+from addon import PasteManager, format_numerals
 import sys
 import re
+import roman
 import pyperclip
 import unicodedata
 
@@ -152,6 +153,14 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.insertText('〚〛')
                 cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_0):
+            if cursor.hasSelection():
+                numeral = format_numerals(cursor.selectedText())
+                cursor.insertText(numeral)
+            else:
+                cursor.insertText('<#=#>')
+                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 2)
+                self.setTextCursor(cursor)
         elif event.key() == Qt.Key.Key_BracketLeft or event.key() == Qt.Key.Key_ParenLeft or event.key() == Qt.Key.Key_BraceLeft:
             self.selected_text = cursor.selectedText()
         elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_V):
@@ -175,7 +184,6 @@ class MyPlainTextEdit(QPlainTextEdit):
                     self.line_break = False
                 else:
                     cursor.insertText(f'{line_number + 1}. ')
-
             elif re.findall(r'=>=D>', line_text):
                 try:
                     last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
@@ -187,10 +195,19 @@ class MyPlainTextEdit(QPlainTextEdit):
                         div_number = int(re.findall(r'[0-9]+', last_div)[0])
                         cursor.insertText(f'<D=.{div_number + 1}.{div_type}<=\n1. \n=>=D>')
                     except IndexError:
-                        cursor.insertText(f'<D=.next.{div_type}<=\n1. \n=>=D>')
+                        try:
+                            div_roman = re.findall(r'\.[ivxlcdm]+\.', last_div)[0]
+                            roman_num = div_roman.replace('.', '')
+                            arabic_num = roman.fromRoman(roman_num)
+                            arabic_num += 1
+                            roman_num = roman.toRoman(arabic_num)
+                            cursor.insertText(f'<D=.{roman_num.lower()}.{div_type}<=\n1. \n=>=D>')
+                        except IndexError:
+                            cursor.insertText(f'<D=.next.{div_type}<=\n1. \n=>=D>')
                 else:
                     cursor.insertText(f'<D=.1.fragment<=\n1. \n=>=D>')
                 cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
+                cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, 3)
                 self.setTextCursor(cursor)
             cursor.endEditBlock()
         elif event.key() == Qt.Key.Key_BracketLeft:
@@ -285,6 +302,7 @@ class LeidenEditor(QMainWindow):
         self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str('᾿'))
         insert_menu.addMenu(submenu_diacriticals)
         self.add_menu_action(insert_menu, 'Deletion\t(Ctrl + D)', lambda: self.insert_str('〚〛'))
+        self.add_menu_action(insert_menu, 'Numeral\t(Ctrl + 0)', lambda: self.insert_str('<#=#>'))
         self.add_menu_action(insert_menu, 'Paragraphos\t(Ctrl + P])', lambda: self.insert_str('----'), 'Ctrl+P')
         self.add_menu_action(insert_menu, 'Supralinear Stroke\t(Ctrl + [MINUS])', lambda: self.insert_str('\u0304'))
         self.add_menu_action(insert_menu, 'Underdot\t(Ctrl + [PERIOD])', lambda: self.insert_str('\u0323'))

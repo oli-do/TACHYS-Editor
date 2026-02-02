@@ -1,6 +1,40 @@
 import re
 from shared import greek_pattern
 
+
+def format_numerals(text):
+    tokens = list(set(text.split()))
+    numerals = {"α": 1, "β": 2, "γ": 3, "δ": 4, "ε": 5, "ϛ": 6, "Ϛ": 6, "ϝ": 6, "Ϝ": 6, "ζ": 7, "η": 8, "θ": 9,
+                "ι": 10, "κ": 20, "λ": 30, "μ": 40, "ν": 50, "ξ": 60, "ο": 70, "π": 80, "\u03DF": 90, "\u03DE": 90,
+                "ρ": 100, "σ": 200, "τ": 300, "υ": 400, "φ": 500, "χ": 600, "ψ": 700, "ω": 800, "\u03e1": 900,
+                "\u03e0": 900,
+                "͵α": 1000, "͵β": 2000, "͵γ": 3000, "͵δ": 4000, "͵ε": 5000, "͵ϛ": 6000, "͵Ϛ": 6000, "͵ϝ": 6000,
+                "͵Ϝ": 6000, "͵ζ": 7000, "͵η": 8000, "͵θ": 9000}
+    for token in tokens:
+        if '\u0304' in token:
+            clean_token = token.replace('\u0304', '')
+            value = 0
+            skip_iteration = False
+            for i in range(len(clean_token)):
+                if skip_iteration:
+                    skip_iteration = False
+                    continue
+                char = clean_token[i]
+                if char == '͵':
+                    try:
+                        char += clean_token[i + 1]
+                        skip_iteration = True
+                    except IndexError:
+                        continue
+                try:
+                    value += numerals[char]
+                except KeyError:
+                    break
+            if value > 0:
+                text = text.replace(token, f'<#{token}={value}#>')
+    return text
+
+
 class PasteManager:
     def __init__(self):
         self.underdot = '[\u0323\ue5ce]'
