@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QFontDial
 from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor, QAction
 from typing import Callable
 from parser import LeidenParser
+from transformer import LeidenTransformer
 from shared import greek_pattern
 from addon import PasteManager, format_numerals
 import sys
@@ -275,6 +276,7 @@ class LeidenEditor(QMainWindow):
         self.init_ui()
         # Background Processes
         self.parser = LeidenParser()
+        self.transformer = LeidenTransformer()
         self.worker = DebugWorker(parser=self.parser)
         self.worker.syntax_errors.connect(self.highlight_errors)
         self.syntax_check_timer = QTimer(self)
@@ -299,8 +301,9 @@ class LeidenEditor(QMainWindow):
         menubar = self.menuBar()
         # File Menu
         file_menu = menubar.addMenu('File')
-        self.add_menu_action(file_menu, 'New\n(Ctrl + N)', self.new_file, 'Ctrl+N')
-        self.add_menu_action(file_menu, 'Save\t(Ctrl + S)', self.save_file, 'Ctrl+S')
+        self.add_menu_action(file_menu, 'New', self.new_file, 'Ctrl+N')
+        self.add_menu_action(file_menu, 'Save', self.save_file, 'Ctrl+S')
+        self.add_menu_action(file_menu, 'Export to XML', self.export_to_xml, 'Ctrl+E')
         # Insert Menu
         insert_menu = menubar.addMenu('Insert')
         submenu_diacriticals = QMenu('Ancient Diacriticals', self)
@@ -316,6 +319,13 @@ class LeidenEditor(QMainWindow):
         self.add_menu_action(insert_menu, 'Paragraphos\t(Ctrl + P])', lambda: self.insert_str('----'), 'Ctrl+P')
         self.add_menu_action(insert_menu, 'Supralinear Stroke\t(Ctrl + [MINUS])', lambda: self.insert_str('\u0304'))
         self.add_menu_action(insert_menu, 'Underdot\t(Ctrl + [PERIOD])', lambda: self.insert_str('\u0323'))
+
+    def export_to_xml(self):
+        text = self.editor.toPlainText()
+        tree = self.parser.parse(text)
+        if tree:
+            xml = self.transformer.transform(tree)
+            print(xml)
 
     def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None):
         action = QAction(action_name, self)

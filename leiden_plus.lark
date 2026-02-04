@@ -3,7 +3,7 @@ file_start: default_language (superdiv | div)+
 default_language: "<S=." LANG
 superdiv: NEWLINE div_start (superdiv | div)+ NEWLINE DIV_CLOSE
 div: NEWLINE div_start [NEWLINE] TEXTBLOCK_OPEN item+ NEWLINE TEXTBLOCK_CLOSE [NEWLINE] DIV_CLOSE
-div_start: DIV_OPEN "." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
+div_start: "<D=." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
 
 // TEXT DIVISON
 DIV_OPEN: "<D="
@@ -17,18 +17,19 @@ SUBTYPE: "fragment" | "part" | "column" | "folio" | "side"
 
 // QUANTIFIERS AND UNITS
 CIRCA: "ca."
+QUANTITY: /[0-9]+/
 NUMBER: /[0-9]+/
-RANGE: /[0-9]+-[0-9]+/
+range: NUMBER "-" NUMBER
 LIN: "lin" | "lines"
 CHAR: "char"
 LIN_FORMAT: "perpendicular" | "inverse" | "indent" | "outdent"
-LIN_MARGIN: "ms" | "md" | "msup" | "minf"
+LIN_MARGIN: ",ms" | ",md" | ",msup" | ",minf"
 DOT: "."
 LB: "-"
 OR: " or "
 
-// TEXT
-TEXT: /[’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+(?![\u0323\u0304])/
+// TEXT \u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe
+TEXT: /[’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+(?![\u0323\u0304])/
 GREEK_CHAR: /[α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
 NON_DEF_TEXT: "~|" /[^|]*/ "|~"
 NOTE: "/*" /(.|\n)*?/ "*/"
@@ -45,13 +46,21 @@ NEWLINE: "\n"
 TICK: "'"
 UNDERDOT: "\u0323"
 SUPRALINEAR: "\u0304"
-UNCERTAIN: "(?)"
-UNKNOWN: "?"
+CERTAINTY_MATCH: "(?)"
+EXTENT_UNKNOWN: "?"
+CERT_LOW: "?" | "(?)"
 SLAHES: "/"
 CROSS_STROKES: "X"
 LANG: "grc" | "ar" | "cop" | "egy-Egyd" | "la" | "grc-Latn" | "la-Grek"
 APP_MODE: "reg" | "alt" | "subst" | "corr" | "ed"
 REND: "extension" | "diple"
+SUPRA_ALPHA_SMALL: "ᾱ"
+SUPRA_ALPHA_CAPITAL: "Ᾱ"
+SUPRA_IOTA_SMALL: "ῑ"
+SUPRA_IOTA_CAPITAL: "Ῑ"
+SUPRA_YPSILON_SMALL: "ῡ"
+SUPRA_YPSILON_CAPITAL: "Ῡ"
+?supra_escape: SUPRA_ALPHA_SMALL | SUPRA_ALPHA_CAPITAL | SUPRA_IOTA_SMALL | SUPRA_IOTA_CAPITAL | SUPRA_YPSILON_SMALL | SUPRA_YPSILON_CAPITAL
 
 // START-END
 NUM_START: "<#"
@@ -75,6 +84,7 @@ GRAVE: "`" | "&G"
 ?item: line
     | line_formatted
     | line_margin
+    | line_rend
     | vacat
     | add_above
     | add_below
@@ -128,41 +138,42 @@ GRAVE: "`" | "&G"
     | lines_untranscribed
     | characters_untranscribed
 
-?ex_or_text: ex | text | UNCERTAIN
+?ex_or_text: ex | text | CERT_LOW
 
-?number_content: supralinear_stroke | TEXT | TICK | SPACE | unclear | illegible | "[" text [UNCERTAIN] "]" | "[." NUMBER  "]"
+?number_content: supralinear_stroke | TEXT | TICK | SPACE | unclear | illegible | "[" text [CERT_LOW] "]" | "[." QUANTITY  "]"
 
 // PRESERVATION (VACAT, VESTIGES
-vacat: "vac." [CIRCA] (RANGE | NUMBER | UNKNOWN) [LIN]
-lines_lost: "lost." [CIRCA] (RANGE | NUMBER | UNKNOWN) LIN [UNCERTAIN]
-illegible: (CIRCA | DOT) (RANGE | NUMBER | UNKNOWN) [LIN]
-vestiges: "vestig" [DOT] [CIRCA] (RANGE | NUMBER | UNKNOWN)? (LIN | CHAR)?
+vacat: "vac." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
+lines_lost: "lost." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) LIN [CERTAINTY_MATCH]
+illegible: (CIRCA | DOT) (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
+vestiges: "vestig" [DOT] [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN)? (LIN | CHAR)?
 
 // LINE
 line: NEWLINE NUMBER "." [LB] SPACE
-line_margin: NEWLINE NUMBER "," LIN_MARGIN "." SPACE
-line_formatted: NEWLINE "(" (NUMBER (DOT LB)? | NUMBER "," LIN_MARGIN) "," SPACE LIN_FORMAT ")" SPACE
+line_margin: "\n" NUMBER LIN_MARGIN "." [LB] " "
+line_rend: "\n(" NUMBER ["." LB] ", " LIN_FORMAT ") "
+line_formatted: "\n(" NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
 
 // ADD
-add_above: "\\" item+ [UNKNOWN] "/"
-add_below: "//" item+ "\\\\"
-add_left: "||left:" item+ "||"
-add_right: "||right:" item+ "||"
-add_interlin: "||interlin:" item+ "||"
-add_sling: "<|" item+ "|>"
-add_underline: "<_" item+ "_>"
+add_above: "\\" item+ [CERT_LOW] "/"
+add_below: "//" item+ [CERT_LOW] "\\\\"
+add_left: "||left:" item+ [CERT_LOW] "||"
+add_right: "||right:" item+ [CERT_LOW] "||"
+add_interlin: "||interlin:" item+ [CERT_LOW] "||"
+add_sling: "<|" item+ [CERT_LOW] "|>"
+add_underline: "<_" item+ [CERT_LOW] "_>"
 
 // SPECIAL TEXT FORMAT
 tall: "~||" item+ "||~tall"
 superscripted: "|^" item+ "^|"
 subscripted: "\\|" item+ "|/"
-supralinear_stroke: GREEK_CHAR SUPRALINEAR
+supralinear_stroke: (GREEK_CHAR SUPRALINEAR | supra_escape)+
 supraline: "¯" item+ "¯"
 supraline_underline: "¯_" item+ "_¯"
 
 // NUMBERS, SYMBOLS AND SPECIAL CHARACTERS
 ancient_number: NUM_START (number_content)* "=" [NUMBER | FRACTION] NUM_END
-symbol: "*" NAME_HYPHEN ("(" REND ")")? [UNKNOWN] "*"
+symbol: "*" NAME_HYPHEN ("(" REND ")")? [CERT_LOW] "*"
 drawing: "#" NAME_HYPHEN SPACE
 box: "###"
 paragraphos: NEWLINE "----"
@@ -172,35 +183,35 @@ diple_obelismene: NEWLINE ">---"
 coronis: NEWLINE "-$$-"
 
 // LEIDEN CONVENTIONS
-omitted: OMITTED_START item+ [UNCERTAIN] OMITTED_END
+omitted: OMITTED_START item+ [CERT_LOW] OMITTED_END
 surplus: "{" item+ "}"
 deletion: "〚" (SLAHES | CROSS_STROKES)? item+ "〛"
-abbreviation: "(|" item+ [UNCERTAIN] "|)"
-supplied_lost: "[" item+ [UNCERTAIN] "]"
-gap_lost: "[" (CIRCA | DOT) (RANGE | NUMBER | UNKNOWN) "]" (OR gap_lost)*
-parallel: "|_" item+ [UNCERTAIN] "_|"
+abbreviation: "(|" item+ [CERTAINTY_MATCH] "|)"
+supplied_lost: "[" item+ [CERT_LOW] "]"
+gap_lost: "[" (CIRCA | DOT) (range | QUANTITY | EXTENT_UNKNOWN) "]" (OR gap_lost)*
+parallel: "|_" item+ [CERT_LOW] "_|"
 parallel_lost: "_[" item+ "]_"
 unclear: GREEK_CHAR UNDERDOT
-handshift: "$" NAME_OR_NUMBER [UNCERTAIN]
+handshift: "$" NAME_OR_NUMBER [CERT_LOW]
 note: NOTE
 quotation: /"/ item+ /"/
 diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
 diacritical_element: SPACE (GREEK_CHAR | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
-ex: "(" text [SPACE] [UNKNOWN] ")"
+ex: "(" item+ [CERT_LOW] ")"
 expansion: "(" ex_or_text+ ")"
 
-// APPARATUS
-apparatus: APP_START item+ [UNCERTAIN] [RESP]"|" APP_MODE "|" (item+ [UNCERTAIN] [RESP_NO_COLON])? APP_END
-apparatus_multiple_back: APP_START item+ [UNCERTAIN] [RESP] "||" APP_MODE "||" item+ ("|" item+ [UNCERTAIN] [RESP_NO_COLON])+ APP_END
-apparatus_multiple_front: APP_START item+ [UNCERTAIN] [RESP] ("|" item+ [UNCERTAIN] [RESP])+ "||" APP_MODE "||" item+ [UNCERTAIN] [RESP_NO_COLON] APP_END
+// APPARATUS: must be improved for the transformer; careful: sometimes CERT_LOW, ocasionally CERTAINTY_MATCH
+apparatus: APP_START item+ [CERT_LOW] [RESP]"|" APP_MODE "|" (item+ [CERT_LOW] [RESP_NO_COLON])? APP_END
+apparatus_multiple_back: APP_START item+ [CERT_LOW] [RESP] "||" APP_MODE "||" item+ ("|" item+ [CERT_LOW] [RESP_NO_COLON])+ APP_END
+apparatus_multiple_front: APP_START item+ [CERT_LOW] [RESP] ("|" item+ [CERT_LOW] [RESP])+ "||" APP_MODE "||" item+ [CERT_LOW] [RESP_NO_COLON] APP_END
 
 // LANGUAGE
 non_default_language: NON_DEF_TEXT LANG
-omitted_language: "(Lang:" SPACE NAME SPACE [CIRCA] (NUMBER | RANGE | UNKNOWN) SPACE (LIN | CHAR) ")"
+omitted_language: "(Lang:" SPACE NAME SPACE [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) SPACE (LIN | CHAR) ")"
 
 // UNTRANSCRIBED
-lines_untranscribed: LINES_UNTRANSCRIBED_START SPACE [CIRCA] (NUMBER | RANGE | UNKNOWN) SPACE NON_TRANSCRIBED ")"
-characters_untranscribed: CHARS_UNTRANSCRIBED_START SPACE [CIRCA] (NUMBER | RANGE | UNKNOWN) SPACE NON_TRANSCRIBED ")"
+lines_untranscribed: LINES_UNTRANSCRIBED_START SPACE [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) SPACE NON_TRANSCRIBED ")"
+characters_untranscribed: CHARS_UNTRANSCRIBED_START SPACE [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) SPACE NON_TRANSCRIBED ")"
 
 // TEXT
 text_full_stop: DOT
