@@ -3,11 +3,12 @@ file_start: default_language (superdiv | div)+
 default_language: "<S=." LANG
 superdiv: NEWLINE div_start (superdiv | div)+ NEWLINE DIV_CLOSE
 div: NEWLINE div_start [NEWLINE] TEXTBLOCK_OPEN item+ NEWLINE TEXTBLOCK_CLOSE [NEWLINE] DIV_CLOSE
-div_start: DIV_OPEN "." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE]
+div_start: DIV_OPEN "." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
 
 // TEXT DIVISON
 DIV_OPEN: "<D="
 DIV_CLOSE: "=D>"
+CORRESP: NAME_OR_NUMBER
 TEXTBLOCK_OPEN: "<="
 TEXTBLOCK_CLOSE: "=>"
 RECTO: "r"
@@ -27,11 +28,12 @@ LB: "-"
 OR: " or "
 
 // TEXT
-TEXT: /[͵;,·˙α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
+TEXT: /[’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+/
 NON_DEF_TEXT: "~|" /[^|]*/ "|~"
 NOTE: "/*" /(.|\n)*?/ "*/"
 NAME: /[a-zA-Z]+/
 RESP: /=[ \-.:,()a-zA-Z0-9]+/
+RESP_NO_COLON: /=[ \-.,()a-zA-Z0-9]+/
 NAME_HYPHEN: /[a-zA-Z\-]+/
 NAME_OR_NUMBER: /[a-zA-Z0-9+]+/
 FRACTION: /[0-9]+\/[0-9]+/
@@ -57,18 +59,17 @@ OMITTED_START: "<"
 OMITTED_END: ">"
 APP_START: "<:"
 APP_END: ":>"
+LINES_UNTRANSCRIBED_START: "(Lines:"
+CHARS_UNTRANSCRIBED_START: "(Chars:"
+NON_TRANSCRIBED: "non transcribed"
 
 // DIACRITICALS
 DIARESIS: "¨" | "&D"
-ASPER: "῾" | "&AS"
+ASPER: " ῾" | "&AS"
 ACUTE: "´" | "&AC"
 CIRCUMFLEX: "^" | "&C"
-LENIS: "᾿" | "&L"
+LENIS: " ᾿" | "&L"
 GRAVE: "`" | "&G"
-DIACRITICAL_TEXT: SPACE (TEXT | UNDERDOT_CHAR) "(" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE)+ ")"
-DIACRITICAL_ILLEGIBLE: SPACE ".1(" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE)+ ")"
-DIACRITICAL_LOST: SPACE "[.1](" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE)+ ")"
-DIACRITICAL_SUPPLIED: SPACE "[" TEXT "](" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE)+ ")"
 
 ?item: line
     | line_formatted
@@ -96,8 +97,8 @@ DIACRITICAL_SUPPLIED: SPACE "[" TEXT "](" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX
     | surplus
     | deletion
     | abbreviation
-    | characters_lost
-    | characters_supplied
+    | gap_lost
+    | supplied_lost
     | parallel
     | parallel_lost
     | unclear
@@ -114,7 +115,7 @@ DIACRITICAL_SUPPLIED: SPACE "[" TEXT "](" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX
     | handshift
     | note
     | quotation
-    | diacriticals
+    | diacritical_element
     | paragraphos
     | horizontal_rule
     | wavy_line
@@ -123,30 +124,12 @@ DIACRITICAL_SUPPLIED: SPACE "[" TEXT "](" (DIARESIS | ASPER | ACUTE | CIRCUMFLEX
     | text_full_stop
     | text_space
     | text
-
-?nested: illegible
-    | text
-    | text_space
-    | text_full_stop
-    | lines_lost
-    | omitted
-    | surplus
-    | deletion
-    | abbreviation
-    | expansion
-    | ex
-    | unclear
-    | characters_lost
-    | characters_supplied
-    | diacriticals
-    | ancient_number
-    | handshift
-
-?diacriticals: diacritical_text | diacritical_illegible | diacritical_lost | diacritical_supplied
+    | lines_untranscribed
+    | characters_untranscribed
 
 ?ex_or_text: ex | text | UNCERTAIN
 
-?number_content: SUPRALINE_CHAR | TEXT | TICK | SPACE | unclear | illegible | "[" text [UNCERTAIN] "]"
+?number_content: SUPRALINE_CHAR | TEXT | TICK | SPACE | unclear | illegible | "[" text [UNCERTAIN] "]" | "[." NUMBER  "]"
 
 // PRESERVATION (VACAT, VESTIGES
 vacat: "vac." [CIRCA] (RANGE | NUMBER | UNKNOWN) [LIN]
@@ -160,26 +143,26 @@ line_margin: NEWLINE NUMBER "," LIN_MARGIN "." SPACE
 line_formatted: NEWLINE "(" (NUMBER (DOT LB)? | NUMBER "," LIN_MARGIN) "," SPACE LIN_FORMAT ")" SPACE
 
 // ADD
-add_above: "\\" nested+ [UNKNOWN] "/"
-add_below: "//" nested+ "\\\\"
-add_left: "||left:" nested+ "||"
-add_right: "||right:" nested+ "||"
-add_interlin: "||interlin:" nested+ "||"
-add_sling: "<|" nested+ "|>"
-add_underline: "<_" nested+ "_>"
+add_above: "\\" item+ [UNKNOWN] "/"
+add_below: "//" item+ "\\\\"
+add_left: "||left:" item+ "||"
+add_right: "||right:" item+ "||"
+add_interlin: "||interlin:" item+ "||"
+add_sling: "<|" item+ "|>"
+add_underline: "<_" item+ "_>"
 
 // SPECIAL TEXT FORMAT
-tall: "~||" nested+ "||~tall"
-superscripted: "|^" nested+ "^|"
-subscripted: "\\|" nested+ "|/"
+tall: "~||" item+ "||~tall"
+superscripted: "|^" item+ "^|"
+subscripted: "\\|" item+ "|/"
 supralinear_stroke: SUPRALINE_CHAR+
-supraline: "¯" nested+ "¯"
-supraline_underline: "¯_" nested+ "_¯"
+supraline: "¯" item+ "¯"
+supraline_underline: "¯_" item+ "_¯"
 
 // NUMBERS, SYMBOLS AND SPECIAL CHARACTERS
 ancient_number: NUM_START (number_content)* "=" [NUMBER | FRACTION] NUM_END
-symbol: "*" NAME_HYPHEN ("(" REND ")")? "*"
-drawing: "#" NAME_HYPHEN
+symbol: "*" NAME_HYPHEN ("(" REND ")")? [UNKNOWN] "*"
+drawing: "#" NAME_HYPHEN SPACE
 box: "###"
 paragraphos: NEWLINE "----"
 horizontal_rule: NEWLINE "--------"
@@ -188,39 +171,37 @@ diple_obelismene: NEWLINE ">---"
 coronis: NEWLINE "-$$-"
 
 // LEIDEN CONVENTIONS
-omitted: OMITTED_START nested+ [UNCERTAIN] OMITTED_END
-surplus: "{" nested+ "}"
-deletion: "〚" (SLAHES | CROSS_STROKES)? nested+ "〛"
-abbreviation: "(|" nested+ [UNCERTAIN] "|)"
-characters_supplied: "[" nested+ [UNCERTAIN] "]"
-characters_lost: "[" (CIRCA | DOT) (RANGE | NUMBER | UNKNOWN) "]" (OR characters_lost)?
-parallel: "|_" nested+ [UNCERTAIN] "_|"
-parallel_lost: "_[" nested+ "]_"
+omitted: OMITTED_START item+ [UNCERTAIN] OMITTED_END
+surplus: "{" item+ "}"
+deletion: "〚" (SLAHES | CROSS_STROKES)? item+ "〛"
+abbreviation: "(|" item+ [UNCERTAIN] "|)"
+supplied_lost: "[" item+ [UNCERTAIN] "]"
+gap_lost: "[" (CIRCA | DOT) (RANGE | NUMBER | UNKNOWN) "]" (OR gap_lost)*
+parallel: "|_" item+ [UNCERTAIN] "_|"
+parallel_lost: "_[" item+ "]_"
 unclear: UNDERDOT_CHAR+
 handshift: "$" NAME_OR_NUMBER [UNCERTAIN]
 note: NOTE
-quotation: /"/ nested+ /"/
-diacritical_text: DIACRITICAL_TEXT
-diacritical_lost: DIACRITICAL_LOST
-diacritical_supplied: DIACRITICAL_SUPPLIED
-diacritical_illegible: DIACRITICAL_ILLEGIBLE
+quotation: /"/ item+ /"/
+diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
+diacritical_element: SPACE (text | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
 ex: "(" text [SPACE] [UNKNOWN] ")"
 expansion: "(" ex_or_text+ ")"
 
 // APPARATUS
-apparatus: APP_START nested+ [UNCERTAIN] [RESP]"|" APP_MODE "|" (nested+ [UNCERTAIN] [RESP])? APP_END
-apparatus_multiple_back: APP_START nested+ [UNCERTAIN] [RESP] "||" APP_MODE "||" nested+ ("|" nested+ [UNCERTAIN] [RESP])+ APP_END
-apparatus_multiple_front: APP_START nested+ [UNCERTAIN] [RESP] ("|" nested+ [UNCERTAIN] [RESP])+ "||" APP_MODE "||" nested+ [UNCERTAIN] [RESP] APP_END
+apparatus: APP_START item+ [UNCERTAIN] [RESP]"|" APP_MODE "|" (item+ [UNCERTAIN] [RESP_NO_COLON])? APP_END
+apparatus_multiple_back: APP_START item+ [UNCERTAIN] [RESP] "||" APP_MODE "||" item+ ("|" item+ [UNCERTAIN] [RESP_NO_COLON])+ APP_END
+apparatus_multiple_front: APP_START item+ [UNCERTAIN] [RESP] ("|" item+ [UNCERTAIN] [RESP])+ "||" APP_MODE "||" item+ [UNCERTAIN] [RESP_NO_COLON] APP_END
 
 // LANGUAGE
 non_default_language: NON_DEF_TEXT LANG
-omitted_language: "(Lang: "NAME [CIRCA] (NUMBER | RANGE | UNKNOWN) (LIN | CHAR) ")"
+omitted_language: "(Lang:" SPACE NAME SPACE [CIRCA] (NUMBER | RANGE | UNKNOWN) SPACE (LIN | CHAR) ")"
 
 // UNTRANSCRIBED
-lines_untranscribed: "(Lines:" [CIRCA] (NUMBER | RANGE | UNKNOWN) " non transcribed)"
-characters_untranscribed: "(Chars:" [CIRCA] (NUMBER | RANGE | UNKNOWN) " non transcribed)"
+lines_untranscribed: LINES_UNTRANSCRIBED_START SPACE [CIRCA] (NUMBER | RANGE | UNKNOWN) SPACE NON_TRANSCRIBED ")"
+characters_untranscribed: CHARS_UNTRANSCRIBED_START SPACE [CIRCA] (NUMBER | RANGE | UNKNOWN) SPACE NON_TRANSCRIBED ")"
 
 // TEXT
 text_full_stop: DOT
 text_space: SPACE
-text: TEXT+
+text: TEXT

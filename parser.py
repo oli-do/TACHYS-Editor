@@ -5,6 +5,7 @@ import unicodedata
 @dataclass
 class ParserError:
     type: str
+    id: int
     line: int
     column: int
     char: str | None
@@ -27,20 +28,21 @@ class LeidenParser:
         return True
 
     def parse(self, text):
+        text = unicodedata.normalize('NFC', text)
         if self.print_debug_info:
             print('\n### PARSE ###\n')
             print(f'TEXT\n{text}')
         self.errors = []
         with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
-        parser = Lark(leiden_grammar, parser='lalr')
+        parser = Lark(leiden_grammar, parser='earley')
         try:
-            tree = parser.parse(text, on_error=self.error_handler)
+            tree = parser.parse(text)
             if self.print_debug_info:
                 print(f'TREE\n{tree}')
-        except exceptions.UnexpectedCharacters:
-            pass
-        except exceptions.UnexpectedToken:
-            pass
+        except exceptions.UnexpectedCharacters as e:
+            self.errors.append(ParserError(e.__class__.__name__, 0, e.line, e.column, e.char, None))
+        except exceptions.UnexpectedToken as e:
+            self.errors.append(ParserError(e.__class__.__name__, 1, e.line, e.column, None, e.expected))
         if self.print_debug_info:
             print(f'ERRORS\n{self.errors}')

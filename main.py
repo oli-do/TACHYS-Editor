@@ -34,10 +34,10 @@ class DebugWorker(QThread):
         while self._is_running:
             if self.text != self.previous_text:
                 self.parser.parse(self.text)
-                error_positions = [(error.line, error.column) for error in self.parser.errors]
-                self.syntax_errors.emit(error_positions)
+                error_info = [(error.id, error.line, error.column) for error in self.parser.errors]
+                self.syntax_errors.emit(error_info)
                 self.previous_text = self.text
-            self.msleep(500)
+            self.msleep(1000)
 
     def set_text(self, text):
         self.text = text
@@ -102,12 +102,22 @@ class PythonHighlighter(QSyntaxHighlighter):
                 index = match.capturedStart()
         if self.do_error_highlighting:
             for error in self.parser_errors:
-                line, column = error
+                error_id, line, column = error
                 if self.currentBlock().blockNumber() == line - 1:
                     error_format = QTextCharFormat()
                     error_format.setUnderlineColor(QColor("red"))
                     error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SpellCheckUnderline)
-                    self.setFormat(column - 1, len(text) - column + 1, error_format)
+                    index = column - 1
+                    if error_id == 0:
+                        format_count = 1
+                    elif error_id == 1:
+                        format_count = len(text) - index
+                    else:
+                        break
+                    if 0 <= index < len(text):
+                        self.setFormat(column - 1, format_count, error_format)
+                    else:
+                        self.setFormat(column - 2, format_count + 1, error_format)
 
     def update_error_highlighting(self, error_data):
         self.do_error_highlighting = True
@@ -295,11 +305,11 @@ class LeidenEditor(QMainWindow):
         insert_menu = menubar.addMenu('Insert')
         submenu_diacriticals = QMenu('Ancient Diacriticals', self)
         self.add_menu_action(submenu_diacriticals, 'Acute', lambda: self.insert_str('´'))
-        self.add_menu_action(submenu_diacriticals, 'Asper', lambda: self.insert_str('῾'))
+        self.add_menu_action(submenu_diacriticals, 'Asper', lambda: self.insert_str(' ῾'))
         self.add_menu_action(submenu_diacriticals, 'Circumflex', lambda: self.insert_str('^'))
         self.add_menu_action(submenu_diacriticals, 'Diaresis', lambda: self.insert_str('¨'))
         self.add_menu_action(submenu_diacriticals, 'Grave', lambda: self.insert_str('`'))
-        self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str('᾿'))
+        self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str(' ᾿'))
         insert_menu.addMenu(submenu_diacriticals)
         self.add_menu_action(insert_menu, 'Deletion\t(Ctrl + D)', lambda: self.insert_str('〚〛'))
         self.add_menu_action(insert_menu, 'Numeral\t(Ctrl + 0)', lambda: self.insert_str('<#=#>'))
