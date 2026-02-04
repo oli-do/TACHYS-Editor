@@ -28,7 +28,8 @@ LB: "-"
 OR: " or "
 
 // TEXT
-TEXT: /[’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+/
+TEXT: /[’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+(?![\u0323\u0304])/
+GREEK_CHAR: /[α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
 NON_DEF_TEXT: "~|" /[^|]*/ "|~"
 NOTE: "/*" /(.|\n)*?/ "*/"
 NAME: /[a-zA-Z]+/
@@ -42,8 +43,8 @@ NEWLINE: "\n"
 
 // SPECIAL CHARACTERS
 TICK: "'"
-UNDERDOT_CHAR: TEXT "\u0323"
-SUPRALINE_CHAR: TEXT "\u0304"
+UNDERDOT: "\u0323"
+SUPRALINEAR: "\u0304"
 UNCERTAIN: "(?)"
 UNKNOWN: "?"
 SLAHES: "/"
@@ -129,7 +130,7 @@ GRAVE: "`" | "&G"
 
 ?ex_or_text: ex | text | UNCERTAIN
 
-?number_content: SUPRALINE_CHAR | TEXT | TICK | SPACE | unclear | illegible | "[" text [UNCERTAIN] "]" | "[." NUMBER  "]"
+?number_content: supralinear_stroke | TEXT | TICK | SPACE | unclear | illegible | "[" text [UNCERTAIN] "]" | "[." NUMBER  "]"
 
 // PRESERVATION (VACAT, VESTIGES
 vacat: "vac." [CIRCA] (RANGE | NUMBER | UNKNOWN) [LIN]
@@ -155,7 +156,7 @@ add_underline: "<_" item+ "_>"
 tall: "~||" item+ "||~tall"
 superscripted: "|^" item+ "^|"
 subscripted: "\\|" item+ "|/"
-supralinear_stroke: SUPRALINE_CHAR+
+supralinear_stroke: GREEK_CHAR SUPRALINEAR
 supraline: "¯" item+ "¯"
 supraline_underline: "¯_" item+ "_¯"
 
@@ -179,12 +180,12 @@ supplied_lost: "[" item+ [UNCERTAIN] "]"
 gap_lost: "[" (CIRCA | DOT) (RANGE | NUMBER | UNKNOWN) "]" (OR gap_lost)*
 parallel: "|_" item+ [UNCERTAIN] "_|"
 parallel_lost: "_[" item+ "]_"
-unclear: UNDERDOT_CHAR+
+unclear: GREEK_CHAR UNDERDOT
 handshift: "$" NAME_OR_NUMBER [UNCERTAIN]
 note: NOTE
 quotation: /"/ item+ /"/
 diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
-diacritical_element: SPACE (text | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
+diacritical_element: SPACE (GREEK_CHAR | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
 ex: "(" text [SPACE] [UNKNOWN] ")"
 expansion: "(" ex_or_text+ ")"
 
