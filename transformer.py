@@ -5,6 +5,18 @@ def inner_xml(start: str, children: list[str], end: str):
     xml = start + ''.join(children) + end
     return xml
 
+def lem_rdg(children, tag: str):
+    items = ''.join(children[0])
+    certainty = children[1]
+    resp = children[2]
+    if not certainty:
+        certainty = ''
+    if resp:
+        resp = f' resp="{resp}"'
+    else:
+        resp = ''
+    return f'<{tag}{resp}>{items}{certainty}</{tag}>'
+
 class LeidenTransformer(Transformer):
 
     # DOCUMENT START
@@ -60,6 +72,9 @@ class LeidenTransformer(Transformer):
         return '\n'
 
     # ITEMS
+    def items(self, children):
+        return children
+
     @v_args(inline=True)
     def text(self, text):
         print(f'text: {text}')
@@ -137,7 +152,7 @@ class LeidenTransformer(Transformer):
 
     @v_args(inline=True)
     def QUANTITY(self, quantity):
-        xml = f' quantity={quantity}'
+        xml = f' quantity="{quantity}"'
         print('QUANTITY XML:', xml)
         return xml
 
@@ -148,9 +163,9 @@ class LeidenTransformer(Transformer):
         return xml
 
     @v_args(inline=True)
-    def QUANTITY(self, quantity):
-        xml = f' quantity="{quantity}"'
-        print(f'QUANTITY XML:', xml)
+    def CIRCA(self, _):
+        xml = f' precision="low"'
+        print(f'CIRCA XML:', xml)
         return xml
 
     def vacat(self, children):
@@ -199,4 +214,169 @@ class LeidenTransformer(Transformer):
         return inner_xml('<hi rend="supraline-underline">', children, '</hi>')
 
     def supralinear_stroke(self, children):
-        print('supralinear_stroke:', children)
+        char = children[0]
+        if char.type == 'SUPRA_ALPHA_SMALL':
+            char = 'α'
+        elif char.type == 'SUPRA_ALPHA_CAPITAL':
+            char = 'Α'
+        elif char.type == 'SUPRA_IOTA_SMALL':
+            char = 'ι'
+        elif char.type == 'SUPRA_IOTA_CAPITAL':
+            char = 'Ι'
+        elif char.type == 'SUPRA_YPSILON_SMALL':
+            char = 'υ'
+        elif char.type == 'SUPRA_YPSILON_CAPITAL':
+            char = 'Υ'
+        return f'<hi rend="supraline">{char}</hi>'
+
+    def lines_lost(self, children):
+        return inner_xml('<gap reason="lost"', children, '/>')
+
+    def illegible(self, children):
+        print(f'illegible: {children}')
+        precision = children[0]
+        quantity_extent = children[1]
+        unit = children[2]
+        if not unit:
+            unit = ' unit="character"'
+        if precision == '.':
+            precision = ''
+        return f'<gap reason="illegible"{quantity_extent}{unit}{precision}/>'
+
+    def vestiges(self, children):
+        precision = children[0]
+        quantity_extent = children[1]
+        unit = children[2]
+        if not unit:
+            unit = ' unit="character"'
+        if isinstance(precision, str):
+            return f'<gap reason="illegible"{quantity_extent}{unit}{precision}><desc>vestiges</desc></gap>'
+        else:
+            return f'<gap reason="illegible"{quantity_extent}{unit}><desc>vestiges</desc></gap>'
+
+    def REND_TICK(self, _):
+        return f' rend="tick"'
+
+    def ancient_number(self, children):
+        rend_tick = children[1]
+        value = children[2]
+        if value:
+            value = f' value="{value}"'
+        else:
+            value = ''
+        if not rend_tick:
+            rend_tick = ''
+        return inner_xml(f'<num{value}{rend_tick}>', children[0], '</num>')
+
+    @v_args(inline=True)
+    def ancient_number_no_text(self, value):
+        return f'<num value="{value}"/>'
+
+    def omitted(self, children):
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        return inner_xml(f'<supplied reason="omitted"{cert_low}>', children[0], '</supplied>')
+
+    def surplus(self, children):
+        return inner_xml('<surplus>', children, '</surplus>')
+
+    def SLASHES(self, _):
+        return ' rend="slashes"'
+
+    def CROSS_STROKES(self, _):
+        return ' rend="cross-strokes"'
+
+    def deletion(self, children):
+        print('deletion:', children)
+        rend = children[0]
+        if not rend:
+            rend = ' rend="erasure"'
+        return inner_xml(f'<del{rend}>', children[1], '</del>')
+
+    def abbreviation(self, children):
+        certainty_match = children[1]
+        if not certainty_match:
+            certainty_match = ''
+        return inner_xml(f'<abbr>', children[0], f'{certainty_match}</abbr>')
+
+    def OR(self, _):
+        return ' or '
+
+    def gap_lost(self, children):
+        print(f'gap_lost: {children}')
+        precision = children[0]
+        quantity_extent = children[1]
+        or_gap_lost = children[2]
+        gap_lost = children[3]
+        if not or_gap_lost:
+            or_gap_lost = ''
+            gap_lost = ''
+        if precision == '.':
+            precision = ''
+        return f'<gap reason="lost"{quantity_extent} unit="character"{precision}/>{or_gap_lost}{gap_lost}'
+
+    def supplied_lost(self, children):
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        return inner_xml(f'<supplied reason="lost"{cert_low}>', children[0], '</supplied>')
+
+    def parallel(self, children):
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        return inner_xml(f'<supplied evidence="parallel" reason="undefined"{cert_low}>', children[0], '</supplied>')
+
+    def parallel_lost(self, children):
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        return inner_xml(f'<supplied evidence="parallel" reason="lost"{cert_low}>', children[0], '</supplied>')
+
+    def unclear(self, children):
+        return inner_xml('<unclear>', children, '</unclear>')
+
+    @v_args(inline=True)
+    def non_default_language(self, text, lang):
+        return f'<foreign xml:lang="{lang}">{text}</foreign>"'
+
+    def CHAR(self, _):
+        return ' unit="character"'
+
+    def omitted_language(self, children):
+        print('omitted language:', children)
+        lang = children[0]
+        precision = children[1]
+        quantity_extent = children[2]
+        unit = children[3]
+        if not precision:
+            precision = ''
+        return f'<gap reason="ellipsis"{quantity_extent}{unit}{precision}><desc>{lang}</desc></gap>'
+
+    def ex(self, children):
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        return inner_xml(f'<ex{cert_low}>', children[0], '</ex>')
+
+    def expansion(self, children):
+        return inner_xml('<expan>', children, '</expan')
+
+    def lem(self, children):
+        return lem_rdg(children, 'lem')
+
+    def rdg(self, children):
+        return lem_rdg(children, 'rdg')
+
+    def app_ed(self, children):
+        ed_1 = children[0]
+        ed_2 = children[1]
+        if not ed_2:
+            return f'<app type="editorial">{ed_1}<rdg/></app>'
+        else:
+            return inner_xml(f'<app type="editorial">', children, '</app>')
+
+    def app_ed_multi(self, children):
+        return inner_xml(f'<app type="editorial">', children, '</app>')
+

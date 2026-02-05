@@ -100,10 +100,10 @@ class TestParser(unittest.TestCase):
                      insert('1. vestig.2-3lin'),
                      insert('1. vestig.ca.3lin'),
                      insert('1. vestig.?lin'),
-                     insert('1. vestig'),
-                     insert('1. vestig.14char'),
-                     insert('1. vestig.ca.3char'),
-                     insert('1. vestig.15-30char')]
+                     insert('1. vestig.?'),
+                     insert('1. vestig.14'),
+                     insert('1. vestig.ca.3'),
+                     insert('1. vestig.15-30')]
         for test in test_list:
             self.assertFalse(parser_test(test))
 
@@ -124,7 +124,7 @@ class TestParser(unittest.TestCase):
                      insert('1. (Καρ(ανίδι?))'),
                      insert('1. (Καρ(ανίδ ))'),
                      insert('1. ((ἔτους))'),
-                     insert('1. (ἔτους(?))'),
+                     insert('1. ((ἔτους?))'),
                      insert('1. ((ἔτ ))')]
         for test in test_list:
             self.assertFalse(parser_test(test))
