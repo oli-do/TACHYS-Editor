@@ -209,19 +209,19 @@ rdg: items [CERTAINTY_MATCH] ["=" RESP_NO_COLON]
 app_ed: "<:" lem "|ed|" [rdg] ":>"
 app_ed_multi: "<:" lem "||ed||" rdg ("|" rdg)+ ":>"
 
-app_element: items [CERTAINTY_MATCH]
-?app_element_multi: app_element ("|" app_element)+
+app_element_cl: items [CERT_LOW]
+app_element_cm: items [CERTAINTY_MATCH]
 
-reg: items [CERTAINTY_MATCH] LANG
-app_reg: "<:" reg "|reg|" app_element ":>"
-app_reg_multi: "<:" reg ("|" reg)+ "||reg||" app_element ":>"
+reg: items [CERT_LOW] ["=" LANG]
+app_reg: "<:" reg "|reg|" app_element_cm ":>"
+app_reg_multi: "<:" reg ("|" reg)+ "||reg||" app_element_cm ":>"
 
-app_corr: "<:" app_element "|corr|" app_element ":>"
+app_corr: "<:" app_element_cl "|corr|" app_element_cm ":>"
 
-app_subst: "<:" app_element "|subst|" app_element ":>"
+app_subst: "<:" app_element_cm "|subst|" app_element_cm ":>"
 
-app_alt: "<:" app_element "|alt|" app_element ":>"
-app_alt_multi: "<:" app_element "||alt||" app_element_multi ":>"
+app_alt: "<:" lem "|alt|" rdg ":>"
+app_alt_multi: "<:" lem "||alt||" rdg ("|" rdg)+ ":>"
 
 // LANGUAGE
 non_default_language: "~|" NON_DEF_TEXT "|~" LANG

@@ -380,3 +380,59 @@ class LeidenTransformer(Transformer):
     def app_ed_multi(self, children):
         return inner_xml(f'<app type="editorial">', children, '</app>')
 
+    def reg(self, children):
+        items = ''.join(children[0])
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        lang = children[2]
+        if lang:
+            lang = f' xml:lang="{lang}"'
+        else:
+            lang = ''
+        return f'<reg{lang}{cert_low}>{items}</reg>'
+
+    def app_element_cl(self, children):
+        items = ''.join(children[0])
+        cert_low = children[1]
+        if not cert_low:
+            cert_low = ''
+        return f'{cert_low}>{items}'
+
+    def app_element_cm(self, children):
+        items = ''.join(children[0])
+        certainty_match = children[1]
+        if not certainty_match:
+            certainty_match = ''
+        return f'{items}{certainty_match}'
+
+    def app_reg(self, children):
+        reg = children[0]
+        orig = f'<orig{children[1]}</orig>'
+        return f'<choice>{reg}{orig}</choice>'
+
+    def app_reg_multi(self, children):
+        reg = ''.join(children[0:-1])
+        orig = f'<orig{children[-1]}</orig>'
+        return f'<choice>{reg}{orig}</choice>'
+
+    def app_corr(self, children):
+        corr = f'<corr{children[0]}</corr>'
+        sic = f'<sic>{children[1]}</sic>'
+        return f'<choice>{corr}{sic}</choice>'
+
+    def app_subst(self, children):
+        add = f'<add place="inline">{children[0]}</add>'
+        deletion = f'<del rend="corrected">{children[1]}</del>'
+        return f'<subst>{add}{deletion}</choice>'
+
+    def app_alt(self, children):
+        lem = children[0]
+        rdg = children[1]
+        return f'<app type="alternative">{lem}{rdg}></app>'
+
+    def app_alt_multi(self, children):
+        lem = children[0]
+        rdg = ''.join(children[1:])
+        return f'<app type="alternative">{lem}{rdg}</app>'
+
