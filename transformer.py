@@ -40,7 +40,6 @@ class LeidenTransformer(Transformer):
 
     @v_args(inline=True)
     def div_start(self, n, subtype, corresp):
-        print(f'div_start: {n}, {subtype}, {corresp}')
         if corresp:
             corresp_str = f' corresp="{corresp}"'
         else:
@@ -49,27 +48,20 @@ class LeidenTransformer(Transformer):
            subtype_str = ''
         else:
            subtype_str = f' subtype="{subtype}"'
-        xml = f'<div n="{n}"{subtype_str} type="textpart"{corresp_str}>'
-        print('div_start XML:', xml)
-        return f'<div n="{n}"{subtype_str} type="textpart"{corresp_str}>'
+        xml = f'\n<div n="{n}"{subtype_str} type="textpart"{corresp_str}>'
+        return xml
 
     def TEXTBLOCK_OPEN(self, _):
         xml = '<ab>'
-        print('TEXTBLOCK_OPEN XML:', xml)
         return xml
 
     def TEXTBLOCK_CLOSE(self, _):
-        xml = '</ab>'
-        print('TEXTBLOCK_OPEN XML:', xml)
+        xml = '\n</ab>'
         return xml
 
     def DIV_CLOSE(self, _):
         xml = '</div>'
-        print('DIV_CLOSE XML:', xml)
         return xml
-
-    def NEWLINE(self, _):
-        return '\n'
 
     # ITEMS
     def items(self, children):
@@ -77,7 +69,6 @@ class LeidenTransformer(Transformer):
 
     @v_args(inline=True)
     def text(self, text):
-        print(f'text: {text}')
         return text
 
     @v_args(inline=True)
@@ -86,30 +77,29 @@ class LeidenTransformer(Transformer):
         return space
 
     @v_args(inline=True)
-    def line(self, _, number, lb, __):
-        print(f'line: {number}, {lb}')
+    def text_full_stop(self, full_stop):
+        return full_stop
+
+    @v_args(inline=True)
+    def line(self, number, lb):
         if lb:
             lb_str = f' break="no"'
         else:
             lb_str = ''
         xml = f'\n<lb n="{number}"{lb_str}/>'
-        print('line XML:', xml)
         return xml
 
     @v_args(inline=True)
     def line_formatted(self, n, n2, lb, rend):
-        print(f'line_formatted: n={n}, n2={n2}, lb={lb}, rend={rend}')
         if lb:
             lb_str = f' break="no"'
         else:
             lb_str = ''
         xml = f'\n<lb n="{n+n2}"{lb_str} rend="{rend}"/>'
-        print('line_formatted XML:', xml)
         return xml
 
     @v_args(inline=True)
     def line_rend(self, n, lb, rend):
-        print(f'line_rend: n={n}, lb={lb}, rend={rend}')
         if lb:
             lb_str = f' break="no"'
         else:
@@ -120,52 +110,43 @@ class LeidenTransformer(Transformer):
 
     @v_args(inline=True)
     def line_margin(self, n, n2, lb):
-        print(f'line_margin: n={n}, n2={n2}, lb={lb}')
         if lb:
             lb_str = f' break="no"'
         else:
             lb_str = ''
         xml = f'\n<lb n="{n+n2}"{lb_str}/>'
-        print('line_margin XML:', xml)
         return xml
 
     def EXTENT_UNKNOWN(self, _):
         xml = ' extent="unknown"'
-        print('UNKNOWN XML:', xml)
         return xml
 
     def CERT_LOW(self, _):
         xml = ' cert="low"'
-        print('CERT_LOW XML:', xml)
         return xml
 
     def CERTAINTY_MATCH(self, _):
         xml = '<certainty match=".." locus="value"/>'
-        print('CERTAINTY_MATCH XML:', xml)
         return xml
 
     @v_args(inline=True)
     def range(self, at_least, at_most):
         xml = f' atLeast="{at_least}" atMost="{at_most}"'
-        print('RANGE XML:', xml)
         return xml
 
     @v_args(inline=True)
     def QUANTITY(self, quantity):
         xml = f' quantity="{quantity}"'
-        print('QUANTITY XML:', xml)
         return xml
 
     @v_args(inline=True)
     def LIN(self, _):
         xml = ' unit="line"'
-        print(f'LINE XML:', xml)
         return xml
 
     @v_args(inline=True)
     def CIRCA(self, _):
         xml = f' precision="low"'
-        print(f'CIRCA XML:', xml)
         return xml
 
     def vacat(self, children):
@@ -233,7 +214,6 @@ class LeidenTransformer(Transformer):
         return inner_xml('<gap reason="lost"', children, '/>')
 
     def illegible(self, children):
-        print(f'illegible: {children}')
         precision = children[0]
         quantity_extent = children[1]
         unit = children[2]
@@ -304,7 +284,6 @@ class LeidenTransformer(Transformer):
         return ' or '
 
     def gap_lost(self, children):
-        print(f'gap_lost: {children}')
         precision = children[0]
         quantity_extent = children[1]
         or_gap_lost = children[2]
@@ -345,7 +324,6 @@ class LeidenTransformer(Transformer):
         return ' unit="character"'
 
     def omitted_language(self, children):
-        print('omitted language:', children)
         lang = children[0]
         precision = children[1]
         quantity_extent = children[2]
@@ -435,4 +413,79 @@ class LeidenTransformer(Transformer):
         lem = children[0]
         rdg = ''.join(children[1:])
         return f'<app type="alternative">{lem}{rdg}</app>'
+
+    @v_args(inline=True)
+    def symbol(self, type, rend, unclear):
+        if rend:
+            rend = f' rend="{rend}"'
+        else:
+            rend = ''
+        g = f'<g{rend} type="{type}"/>'
+        if unclear:
+            return f'<unclear>{g}</unclear>'
+        else:
+            return g
+
+    @v_args(inline=True)
+    def drawing(self, description):
+        return f'<figure><figDesc>{description}</figDesc></figure>'
+
+    @v_args(inline=True)
+    def handshift(self, name, cert_low):
+        if not cert_low:
+            cert_low = ''
+        return f'<handShift new="{name}"{cert_low}/>'
+
+    @v_args(inline=True)
+    def note(self, text):
+        return f'<note xml:lang="en">{text}</note>'
+
+    def quotation(self, children):
+        return inner_xml(f'<q>', children[1], '</q>')
+
+    def diacritical(self, children):
+        rend = str(children[0].type).lower()
+        return f'<hi rend={rend}>'
+
+    def diacritical_element(self, children):
+        print('diacritical_element:', children)
+        item = children[0]
+        his = children[1:]
+        end_his = ''
+        for _ in his:
+            end_his += '</hi>'
+        return ''.join(his) + item + end_his
+
+    def paragraphos(self, _):
+        return '\n<milestone rend="paragraphos" unit="undefined"/>'
+
+    def horizontal_rule(self, _):
+        return '\n<milestone rend="horizontal-rule" unit="undefined"/>'
+
+    def wavy_line(self, _):
+        return '\n<milestone rend="wavy-line" unit="undefined"/>'
+
+    def diple_obelismene(self, _):
+        return '\n<milestone rend="diple-obelismene" unit="undefined"/>'
+
+    def coronis(self, _):
+        return '\n<milestone rend="coronis" unit="undefined"/>'
+
+    @v_args(inline=True)
+    def lines_untranscribed(self, precision_low, quantity_extent):
+        if not precision_low:
+            precision_low = ''
+        return f'<gap reason="ellipsis"{quantity_extent} unit="line"{precision_low}><desc>non transcribed</desc></gap>'
+
+    @v_args(inline=True)
+    def characters_untranscribed(self, precision_low, quantity_extent):
+        if not precision_low:
+            precision_low = ''
+        return f'<gap reason="ellipsis"{quantity_extent} unit="character"{precision_low}><desc>non transcribed</desc></gap>'
+
+
+
+
+
+
 

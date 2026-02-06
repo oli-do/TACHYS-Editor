@@ -1,8 +1,8 @@
 ?start: file_start
 file_start: default_language (superdiv | div)+
 default_language: "<S=." LANG
-superdiv: NEWLINE div_start (superdiv | div)+ NEWLINE DIV_CLOSE
-div: NEWLINE div_start [NEWLINE] TEXTBLOCK_OPEN item+ NEWLINE TEXTBLOCK_CLOSE [NEWLINE] DIV_CLOSE
+superdiv: "\n" div_start (superdiv | div)+ "\n" DIV_CLOSE
+div: "\n" div_start ["\n"] TEXTBLOCK_OPEN item+ "\n" TEXTBLOCK_CLOSE ["\n"] DIV_CLOSE
 div_start: "<D=." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
 
 // TEXT DIVISON
@@ -32,7 +32,7 @@ OR: " or "
 TEXT: /[’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+(?![\u0323\u0304])/
 GREEK_CHAR: /[α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
 NON_DEF_TEXT: /.[^|]+/
-NOTE: "/*" /(.|\n)*?/ "*/"
+NOTE_TEXT: /.[^*]+/
 NAME: /[a-zA-Z]+/
 RESP: /[ \-.:,()a-zA-Z0-9]+/
 RESP_NO_COLON: /[ \-.,()a-zA-Z0-9]+/
@@ -40,7 +40,6 @@ NAME_HYPHEN: /[a-zA-Z\-]+/
 NAME_OR_NUMBER: /[a-zA-Z0-9+]+/
 FRACTION: /[0-9]+\/[0-9]+/
 SPACE: " "
-NEWLINE: "\n"
 
 // SPECIAL CHARACTERS
 REND_TICK: " '"
@@ -58,17 +57,7 @@ SUPRA_IOTA_CAPITAL: "Ῑ"
 SUPRA_YPSILON_SMALL: "ῡ"
 SUPRA_YPSILON_CAPITAL: "Ῡ"
 ?supra_escape: SUPRA_ALPHA_SMALL | SUPRA_ALPHA_CAPITAL | SUPRA_IOTA_SMALL | SUPRA_IOTA_CAPITAL | SUPRA_YPSILON_SMALL | SUPRA_YPSILON_CAPITAL
-
-// START-END
-NUM_START: "<#"
-NUM_END: "#>"
-OMITTED_START: "<"
-OMITTED_END: ">"
-APP_START: "<:"
-APP_END: ":>"
-LINES_UNTRANSCRIBED_START: "(Lines:"
-CHARS_UNTRANSCRIBED_START: "(Chars:"
-NON_TRANSCRIBED: "non transcribed"
+QMARK: /"/
 
 // DIACRITICALS
 DIARESIS: "¨" | "&D"
@@ -150,7 +139,7 @@ illegible: (CIRCA | DOT) (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
 vestiges: "vestig." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
 
 // LINE
-line: NEWLINE NUMBER "." [LB] SPACE
+line: "\n" NUMBER "." [LB] " "
 line_margin: "\n" NUMBER LIN_MARGIN "." [LB] " "
 line_rend: "\n(" NUMBER ["." LB] ", " LIN_FORMAT ") "
 line_formatted: "\n(" NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
@@ -175,14 +164,14 @@ supraline_underline: "¯_" items "_¯"
 // NUMBERS, SYMBOLS AND SPECIAL CHARACTERS
 ancient_number: "<#" items [REND_TICK] "=" [NUMBER | FRACTION] "#>"
 ancient_number_no_text: "<#=" (NUMBER | FRACTION) "#>"
-symbol: "*" NAME_HYPHEN ("(" REND ")")? [CERT_LOW] "*"
-drawing: "#" NAME_HYPHEN SPACE
+symbol: "*" NAME_HYPHEN ["(" REND ")"] [CERT_LOW] "*"
+drawing: "#" NAME_HYPHEN " "
 box: "###"
-paragraphos: NEWLINE "----"
-horizontal_rule: NEWLINE "--------"
-wavy_line: NEWLINE "~~~~~~~~"
-diple_obelismene: NEWLINE ">---"
-coronis: NEWLINE "-$$-"
+paragraphos: "\n----"
+horizontal_rule: "\n--------"
+wavy_line: "\n~~~~~~~~"
+diple_obelismene: "\n>---"
+coronis: "\n-$$-"
 
 // LEIDEN CONVENTIONS
 omitted: "<" items [CERT_LOW] ">"
@@ -196,10 +185,10 @@ parallel_lost: "_[" items [CERT_LOW] "]_"
 ?unclear_char: GREEK_CHAR "\u0323"
 unclear: unclear_char+
 handshift: "$" NAME_OR_NUMBER [CERT_LOW]
-note: NOTE
-quotation: /"/ items /"/
+note: "/*" NOTE_TEXT "*/"
+quotation: QMARK items QMARK
 diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
-diacritical_element: SPACE (GREEK_CHAR | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
+diacritical_element: " " (GREEK_CHAR | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
 ex: "(" items [CERT_LOW] ")"
 expansion: "(" ex_or_text+ ")"
 
@@ -228,8 +217,8 @@ non_default_language: "~|" NON_DEF_TEXT "|~" LANG
 omitted_language: "(Lang: " NAME " " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) " " (LIN | CHAR) ")"
 
 // UNTRANSCRIBED
-lines_untranscribed: LINES_UNTRANSCRIBED_START SPACE [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) SPACE NON_TRANSCRIBED ")"
-characters_untranscribed: CHARS_UNTRANSCRIBED_START SPACE [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) SPACE NON_TRANSCRIBED ")"
+lines_untranscribed: "(Lines: " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) " non transcribed)"
+characters_untranscribed: "(Chars: " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) " non transcribed)"
 
 // TEXT
 text_full_stop: DOT
