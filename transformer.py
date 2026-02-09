@@ -22,19 +22,16 @@ class LeidenTransformer(Transformer):
     # DOCUMENT START
     @v_args(inline=True)
     def default_language(self, lang):
-        print(f'default_language: {lang}')
         return f'<div xml:lang="{lang}" type="edition" xml:space="preserve">'
 
     def file_start(self, children):
         return ''.join(children) + '\n</div>'
 
     def div(self, children):
-        print(f'div: {children}')
         children = list(filter(None, children))
         return ''.join(children)
 
     def superdiv(self, children):
-        print(f'superdiv: {children}')
         children = list(filter(None, children))
         return ''.join(children)
 
@@ -68,12 +65,14 @@ class LeidenTransformer(Transformer):
         return children
 
     @v_args(inline=True)
-    def text(self, text):
+    def TEXT(self, text):
         return text
+
+    def text(self, children):
+        return ''.join(children)
 
     @v_args(inline=True)
     def text_space(self, space):
-        print(f'text_space: {space}')
         return space
 
     @v_args(inline=True)
@@ -105,7 +104,6 @@ class LeidenTransformer(Transformer):
         else:
             lb_str = ''
         xml = f'\n<lb n="{n}"{lb_str} rend="{rend}"/>'
-        print('line_rend XML:', xml)
         return xml
 
     @v_args(inline=True)
@@ -156,43 +154,43 @@ class LeidenTransformer(Transformer):
             return inner_xml('<space', children, '/>')
 
     def add_above(self, children):
-        return inner_xml('<add place="above">', children, '</add>')
+        return inner_xml('<add place="above">', children[0], '</add>')
 
     def add_below(self, children):
-        return inner_xml('<add place="below">', children, '</add>')
+        return inner_xml('<add place="below">', children[0], '</add>')
 
     def add_left(self, children):
-        return inner_xml('<add place="left">', children, '</add>')
+        return inner_xml('<add place="left">', children[0], '</add>')
 
     def add_right(self, children):
-        return inner_xml('<add place="right">', children, '</add>')
+        return inner_xml('<add place="right">', children[0], '</add>')
 
     def add_interlin(self, children):
-        return inner_xml('<add place="interlinear">', children, '</add>')
+        return inner_xml('<add place="interlinear">', children[0], '</add>')
 
     def add_sling(self, children):
-        return inner_xml('<add rend="sling" place="margin">', children, '</add>')
+        return inner_xml('<add rend="sling" place="margin">', children[0], '</add>')
 
     def add_underline(self, children):
-        return inner_xml('<add rend="underline" place="margin">', children, '</add>')
+        return inner_xml('<add rend="underline" place="margin">', children[0], '</add>')
 
     def box(self, _):
         return '<milestone rend="box" unit="undefined"/>'
 
     def tall(self, children):
-        return inner_xml('<hi rend="tall">', children, '</hi>')
+        return inner_xml('<hi rend="tall">', children[0], '</hi>')
 
     def superscripted(self, children):
-        return inner_xml('<hi rend="superscript">', children, '</hi>')
+        return inner_xml('<hi rend="superscript">', children[0], '</hi>')
 
     def subscripted(self, children):
-        return inner_xml('<hi rend="subscript">', children, '</hi>')
+        return inner_xml('<hi rend="subscript">', children[0], '</hi>')
 
     def supraline(self, children):
-        return inner_xml('<hi rend="supraline">', children, '</hi>')
+        return inner_xml('<hi rend="supraline">', children[0], '</hi>')
 
     def supraline_underline(self, children):
-        return inner_xml('<hi rend="supraline-underline">', children, '</hi>')
+        return inner_xml('<hi rend="supraline-underline">', children[0], '</hi>')
 
     def supralinear_stroke(self, children):
         char = children[0]
@@ -259,7 +257,7 @@ class LeidenTransformer(Transformer):
         return inner_xml(f'<supplied reason="omitted"{cert_low}>', children[0], '</supplied>')
 
     def surplus(self, children):
-        return inner_xml('<surplus>', children, '</surplus>')
+        return inner_xml('<surplus>', children[0], '</surplus>')
 
     def SLASHES(self, _):
         return ' rend="slashes"'
@@ -268,7 +266,6 @@ class LeidenTransformer(Transformer):
         return ' rend="cross-strokes"'
 
     def deletion(self, children):
-        print('deletion:', children)
         rend = children[0]
         if not rend:
             rend = ' rend="erasure"'
@@ -448,7 +445,6 @@ class LeidenTransformer(Transformer):
         return f'<hi rend={rend}>'
 
     def diacritical_element(self, children):
-        print('diacritical_element:', children)
         item = children[0]
         his = children[1:]
         end_his = ''

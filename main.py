@@ -1,6 +1,6 @@
-from PyQt6.QtCore import QRegularExpression, Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QFontDialog, QMenu
-from PyQt6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor, QAction
+from PySide6.QtCore import QRegularExpression, Qt, QThread, QTimer, Signal
+from PySide6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QMenu, QMessageBox
+from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor, QAction
 from typing import Callable
 from parser import LeidenParser
 from transformer import LeidenTransformer
@@ -22,7 +22,7 @@ sys.excepthook = catch_exceptions
 
 
 class DebugWorker(QThread):
-    syntax_errors: pyqtSignal = pyqtSignal(list)
+    syntax_errors: Signal = Signal(list)
 
     def __init__(self, parser: LeidenParser):
         super().__init__()
@@ -34,7 +34,9 @@ class DebugWorker(QThread):
     def run(self):
         while self._is_running:
             if self.text != self.previous_text:
-                self.parser.parse(self.text)
+                self.parser.parse_line_by_line(self.text)
+                if not self.parser.errors:
+                    self.parser.parse_full(self.text)
                 error_info = [(error.id, error.line, error.column) for error in self.parser.errors]
                 self.syntax_errors.emit(error_info)
                 self.previous_text = self.text
@@ -57,10 +59,6 @@ class PythonHighlighter(QSyntaxHighlighter):
         self.parser_errors = []
 
     def set_highlighting_rules(self):
-        # line numbers
-        line_format = QTextCharFormat()
-        line_format.setForeground(QColor('darkBlue'))
-        self.highlighting_rules.append((r'^[0-9]+\.\-?', line_format))
         # default Greek text
         text_format = QTextCharFormat()
         text_format.setForeground(QColor('black'))
@@ -68,14 +66,39 @@ class PythonHighlighter(QSyntaxHighlighter):
         # special = symbol, supplied characters + lost characters, deletion
         special_format = QTextCharFormat()
         special_format.setForeground(QColor("green"))
-        self.highlighting_rules.append((r'\*[a-zA-Z\-]+\*', special_format))
-        self.highlighting_rules.append((r'\[[' + self.greek_pattern + r' \.\-\?0-9]+\]', special_format))
-        self.highlighting_rules.append((f'〚[{self.greek_pattern}]+〛', special_format))
+        self.highlighting_rules.append((r'\*.+\*', special_format))
+        self.highlighting_rules.append((r'\[.+\]', special_format))
+        self.highlighting_rules.append((f'〚.+〛', special_format))
         self.highlighting_rules.append((r'\.[0-9\?]+-?[0-9]*', special_format))
-        self.highlighting_rules.append((f'<[{self.greek_pattern}]+>', special_format))
-        self.highlighting_rules.append((r'\{[' + self.greek_pattern + r']+\}', special_format))
-        self.highlighting_rules.append((r'\([' + self.greek_pattern + r']+\)', special_format))
+        self.highlighting_rules.append((f'<.+>', special_format))
+        self.highlighting_rules.append((r'\{.+\}', special_format))
+        self.highlighting_rules.append((r'\(.+\)', special_format))
+        self.highlighting_rules.append((r'\\.+/', special_format))
+        self.highlighting_rules.append((r'~.+tall', special_format))
+        self.highlighting_rules.append((r'~.+~', special_format))
+        self.highlighting_rules.append((r'/.+/', special_format))
+        self.highlighting_rules.append((r'\$.+ ', special_format))
+        self.highlighting_rules.append((r'#.+ ', special_format))
+        self.highlighting_rules.append((r'###', special_format))
+        self.highlighting_rules.append((r'--------', special_format))
+        self.highlighting_rules.append((r'----', special_format))
+        self.highlighting_rules.append((r'~~~~~~~~', special_format))
+        self.highlighting_rules.append((r'>---', special_format))
+        self.highlighting_rules.append((r'-\$\$-', special_format))
+        self.highlighting_rules.append((r'\|.+\|', special_format))
+        self.highlighting_rules.append((r'¯.+¯', special_format))
+        self.highlighting_rules.append((r'_.+_', special_format))
         self.highlighting_rules.append((r'[' + self.greek_pattern + ']\u0323', special_format))
+        self.highlighting_rules.append((r'[' + self.greek_pattern + ']\u0304|[ᾱᾹῑῙῡῩ]', special_format))
+        self.highlighting_rules.append((r'vac.[0-9\?]+-?[0-9]*(lin)?', special_format))
+        self.highlighting_rules.append((r'lost.[0-9\?]+-?[0-9]*(lin)?', special_format))
+        self.highlighting_rules.append((r'vestig.[0-9\?]+-?[0-9]*(lin)?', special_format))
+        # line numbers
+        line_format = QTextCharFormat()
+        line_format.setForeground(QColor('darkBlue'))
+        self.highlighting_rules.append((r'^[0-9]+\.\-?', line_format))
+        self.highlighting_rules.append((r'^\([0-9]+\-?.+\)', line_format))
+        self.highlighting_rules.append((r'^[0-9]+\-?,.+\.', line_format))
         # div
         div_format = QTextCharFormat()
         div_format.setForeground(QColor("darkBlue"))
@@ -107,18 +130,19 @@ class PythonHighlighter(QSyntaxHighlighter):
                 if self.currentBlock().blockNumber() == line - 1:
                     error_format = QTextCharFormat()
                     error_format.setUnderlineColor(QColor("red"))
+                    error_format.setForeground(QColor("red"))
                     error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SpellCheckUnderline)
                     index = column - 1
                     if error_id == 0:
-                        format_count = 1
+                        format_count = len(text) - index
                     elif error_id == 1:
                         format_count = len(text) - index
+                    elif error_id == 2:
+                        column = 1
+                        format_count = len(text)
                     else:
                         break
-                    if 0 <= index < len(text):
-                        self.setFormat(column - 1, format_count, error_format)
-                    else:
-                        self.setFormat(column - 2, format_count + 1, error_format)
+                    self.setFormat(column - 2, format_count + 1, error_format)
 
     def update_error_highlighting(self, error_data):
         self.do_error_highlighting = True
@@ -141,7 +165,7 @@ class MyPlainTextEdit(QPlainTextEdit):
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
             self.line_text = self.get_current_line_text().strip()
             cursor.beginEditBlock()
-            if self.line_text[-1] == '-' and not self.line_text[-2:] == '--' and cursor.atBlockEnd():
+            if self.line_text[-1] == '-' and not re.fullmatch(r'--|\$-', self.line_text[-2:]) and cursor.atBlockEnd():
                 self.line_break = True
                 cursor.deletePreviousChar()
         elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_Period):
@@ -154,7 +178,11 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.insertText('\u0323')
         elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_Minus):
             if cursor.hasSelection():
-                cursor.insertText('¯' + cursor.selectedText() + '¯')
+                text = cursor.selectedText()
+                if len(text) > 1:
+                    cursor.insertText('¯' + cursor.selectedText() + '¯')
+                else:
+                    cursor.insertText(text + '\u0304')
             else:
                 cursor.insertText('\u0304')
         elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_D):
@@ -181,6 +209,7 @@ class MyPlainTextEdit(QPlainTextEdit):
             clipboard_text = self.paste_mgr.replace_lunate_sigma(clipboard_text)
             clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
             clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
+            clipboard_text = self.paste_mgr.replace_brackets(clipboard_text)
             pyperclip.copy(clipboard_text)
         super().keyPressEvent(event)
 
@@ -188,7 +217,7 @@ class MyPlainTextEdit(QPlainTextEdit):
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
             line_text = self.line_text
-            if re.findall(r'^[0-9]+\.-?', line_text):
+            if re.findall(r'^\(?[0-9]+', line_text):
                 line_number = int(re.findall(r'[0-9]+', line_text)[0])
                 if self.line_break:
                     cursor.insertText(f'{line_number + 1}.- ')
@@ -289,7 +318,7 @@ class LeidenEditor(QMainWindow):
 
     def activate_debugging(self):
         self.worker.start()
-        self.syntax_check_timer.start(2000)
+        self.syntax_check_timer.start(500)
         self.push_text_to_worker()
 
     def push_text_to_worker(self):
@@ -314,6 +343,16 @@ class LeidenEditor(QMainWindow):
         self.add_menu_action(submenu_diacriticals, 'Grave', lambda: self.insert_str('`'))
         self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str(' ᾿'))
         insert_menu.addMenu(submenu_diacriticals)
+        submenu_apparatus = QMenu('Apparatus', self)
+        self.add_menu_action(submenu_apparatus, 'Alternate Reading', lambda: self.insert_str('<:{text}|alt|:>'))
+        self.add_menu_action(submenu_apparatus, 'Alternate Reading (multiple)', lambda: self.insert_str('<:{text}||alt||α|β:>'))
+        self.add_menu_action(submenu_apparatus, 'Editorial Correction', lambda: self.insert_str('<:{text}|ed|:>'))
+        self.add_menu_action(submenu_apparatus, 'Editorial Correction (multiple)', lambda: self.insert_str('<:{text}||ed||α|β:>'))
+        self.add_menu_action(submenu_apparatus, 'Orthographic Regularization', lambda: self.insert_str('<:|reg|{text}:>'))
+        self.add_menu_action(submenu_apparatus, 'Orthographic Regularization (multiple)', lambda: self.insert_str('<:α|β||reg||{text}:>'))
+        self.add_menu_action(submenu_apparatus, 'Scribal Correction', lambda: self.insert_str('<:{text}|subst|:>'))
+        self.add_menu_action(submenu_apparatus, 'Spelling Correction', lambda: self.insert_str('<:|corr|{text}:>'))
+        insert_menu.addMenu(submenu_apparatus)
         self.add_menu_action(insert_menu, 'Deletion\t(Ctrl + D)', lambda: self.insert_str('〚〛'))
         self.add_menu_action(insert_menu, 'Numeral\t(Ctrl + 0)', lambda: self.insert_str('<#=#>'))
         self.add_menu_action(insert_menu, 'Paragraphos\t(Ctrl + P])', lambda: self.insert_str('----'), 'Ctrl+P')
@@ -322,10 +361,13 @@ class LeidenEditor(QMainWindow):
 
     def export_to_xml(self):
         text = self.editor.toPlainText()
-        tree = self.parser.parse(text)
+        tree = self.parser.parse_full(text)
         if tree:
             xml = self.transformer.transform(tree)
+            print('XML OUTPUT')
             print(xml)
+        else:
+            QMessageBox.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
 
     def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None):
         action = QAction(action_name, self)
@@ -338,6 +380,10 @@ class LeidenEditor(QMainWindow):
 
     def insert_str(self, string: str):
         cursor = self.editor.textCursor()
+        text = cursor.selectedText()
+        if not text:
+            text = ''
+        string = string.format(text=text)
         cursor.insertText(string)
 
     def set_cursor_position(self, line, column):
@@ -353,13 +399,6 @@ class LeidenEditor(QMainWindow):
 
     def save_file(self):
         return
-
-    def change_font(self):
-        current_font = self.editor.font()
-        font, ok = QFontDialog.getFont(current_font, self, "Select Font")
-        if ok:
-            self.editor.setFont(font)
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

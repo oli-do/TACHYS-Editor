@@ -20,7 +20,7 @@ class LeidenParser:
     def set_print_debug_info(self, print_debug_info: bool):
         self.print_debug_info = print_debug_info
 
-    def parse(self, text):
+    def parse_full(self, text):
         text = unicodedata.normalize('NFC', text)
         if self.print_debug_info:
             print('\n### PARSE ###\n')
@@ -39,7 +39,33 @@ class LeidenParser:
         except exceptions.UnexpectedToken as e:
             self.errors.append(ParserError(e.__class__.__name__, 1, e.line, e.column, None, e.expected))
         except exceptions.UnexpectedEOF as e:
-            self.errors.append(ParserError(e.__class__.__name__, 2, e.line, e.column, None, None))
+            if e.line == -1:
+                line = len(text.split('\n'))
+            else:
+                line = e.line
+            self.errors.append(ParserError(e.__class__.__name__, 2, line, e.column, None, None))
+        if self.print_debug_info:
+            print(f'ERRORS\n{self.errors}')
+        return None
+
+    def parse_line_by_line(self, text):
+        text = unicodedata.normalize('NFC', text)
+        lines = text.split('\n')
+        with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
+            leiden_grammar = file.read()
+        leiden_grammar = leiden_grammar.replace('_LINE_START: NEWLINE', '_LINE_START: "!"')
+        parser = Lark(leiden_grammar, parser='earley', start='leiden_line')
+        self.errors = []
+        for i in range(len(lines)):
+            try:
+                print(lines[i])
+                parser.parse('!' + lines[i])
+            except exceptions.UnexpectedCharacters as e:
+                self.errors.append(ParserError(e.__class__.__name__, 0, i + 1, e.column, e.char, None))
+            except exceptions.UnexpectedToken as e:
+                self.errors.append(ParserError(e.__class__.__name__, 1, i + 1, e.column, None, e.expected))
+            except exceptions.UnexpectedEOF as e:
+                self.errors.append(ParserError(e.__class__.__name__, 2, i + 1, e.column, None, None))
         if self.print_debug_info:
             print(f'ERRORS\n{self.errors}')
         return None
