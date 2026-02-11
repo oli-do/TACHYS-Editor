@@ -48,7 +48,7 @@ class LeidenParser:
             print(f'ERRORS\n{self.errors}')
         return None
 
-    def parse_line_by_line(self, text):
+    def parse_line(self, text, line_indices):
         text = unicodedata.normalize('NFC', text)
         lines = text.split('\n')
         with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
@@ -56,7 +56,7 @@ class LeidenParser:
         leiden_grammar = leiden_grammar.replace('_LINE_START: NEWLINE', '_LINE_START: "!"')
         parser = Lark(leiden_grammar, parser='earley', start='leiden_line')
         self.errors = []
-        for i in range(len(lines)):
+        for i in line_indices:
             try:
                 print(lines[i])
                 parser.parse('!' + lines[i])

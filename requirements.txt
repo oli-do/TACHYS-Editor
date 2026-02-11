@@ -1,0 +1,4 @@
+roman~=5.2
+pyperclip~=1.11.0
+PySide6~=6.10.2
+lark~=1.3.1

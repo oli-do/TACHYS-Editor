@@ -1,5 +1,5 @@
 from PySide6.QtCore import QRegularExpression, Qt, QThread, QTimer, Signal
-from PySide6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QMenu, QMessageBox
+from PySide6.QtWidgets import QApplication, QPlainTextEdit, QMainWindow, QMenu, QMessageBox, QFileDialog
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QFont, QTextCursor, QAction
 from typing import Callable
 from parser import LeidenParser
@@ -34,7 +34,16 @@ class DebugWorker(QThread):
     def run(self):
         while self._is_running:
             if self.text != self.previous_text:
-                self.parser.parse_line_by_line(self.text)
+                current_lines = self.text.split('\n')
+                previous_lines = self.previous_text.split('\n')
+                lines_changed_indices = []
+                for i in range(len(current_lines)):
+                    try:
+                        if current_lines[i] != previous_lines[i]:
+                            lines_changed_indices.append(i)
+                    except IndexError:
+                        lines_changed_indices.append(i)
+                self.parser.parse_line(self.text, lines_changed_indices)
                 if not self.parser.errors:
                     self.parser.parse_full(self.text)
                 error_info = [(error.id, error.line, error.column) for error in self.parser.errors]
@@ -138,7 +147,7 @@ class PythonHighlighter(QSyntaxHighlighter):
                     elif error_id == 1:
                         format_count = len(text) - index
                     elif error_id == 2:
-                        column = 1
+                        column = 2
                         format_count = len(text)
                     else:
                         break
@@ -152,12 +161,12 @@ class PythonHighlighter(QSyntaxHighlighter):
 
 
 class MyPlainTextEdit(QPlainTextEdit):
-    def __init__(self, suggestions):
+    def __init__(self):
         super().__init__()
         self.line_text = ''
-        self.suggestions = suggestions
         self.line_break = False
         self.paste_mgr = PasteManager()
+        self.original_paste_text = ''
         self.selected_text = ''
 
     def keyPressEvent(self, event):
@@ -204,12 +213,24 @@ class MyPlainTextEdit(QPlainTextEdit):
             self.selected_text = cursor.selectedText()
         elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_V):
             # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
+            line_text = self.get_current_line_text()
+            try:
+                line_number = re.findall(r'^\(?[0-9]+', line_text)[0]
+                line_number = int(line_number)
+            except IndexError:
+                line_number = None
+            self.original_paste_text = pyperclip.paste()
             clipboard_text = pyperclip.paste()
             clipboard_text = unicodedata.normalize('NFC', clipboard_text)
             clipboard_text = self.paste_mgr.replace_lunate_sigma(clipboard_text)
             clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
             clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
             clipboard_text = self.paste_mgr.replace_brackets(clipboard_text)
+            if '\n' in clipboard_text and line_number:
+                newline_count = str(clipboard_text).count('\n')
+                for i in range(newline_count):
+                    clipboard_text = re.sub('\n', f'§{line_number+i+1}. ', clipboard_text, 1)
+                clipboard_text = clipboard_text.replace('§', '\n')
             pyperclip.copy(clipboard_text)
         super().keyPressEvent(event)
 
@@ -273,6 +294,8 @@ class MyPlainTextEdit(QPlainTextEdit):
                 cursor.insertText('}')
                 cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
                 self.setTextCursor(cursor)
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_V):
+            pyperclip.copy(self.original_paste_text)
         super().keyReleaseEvent(event)
 
     def get_current_line_text(self):
@@ -293,15 +316,18 @@ class LeidenEditor(QMainWindow):
         self.width = round(0.75 * self.screen_width)
         self.height = round(0.75 * self.screen_height)
         # Initialize Editor
-        self.editor = MyPlainTextEdit(suggestions=[])
+        self.editor = MyPlainTextEdit()
         self.setCentralWidget(self.editor)
         self.editor_font = QFont('Cardo')
         self.editor_font.setPointSize(round(0.011 * self.screen_height))
         self.editor.setFont(self.editor_font)
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
         self.highlighter = PythonHighlighter(self.editor.document())
-        self.setWindowTitle("Leiden+ Editor")
+        self.setWindowTitle("Leiden+ Editor - New File")
         self.resize(self.width, self.height)
+        self.file_dialog = QFileDialog()
+        self.msg = QMessageBox()
+        self.file_path = ''
         self.init_ui()
         # Background Processes
         self.parser = LeidenParser()
@@ -331,7 +357,9 @@ class LeidenEditor(QMainWindow):
         # File Menu
         file_menu = menubar.addMenu('File')
         self.add_menu_action(file_menu, 'New', self.new_file, 'Ctrl+N')
-        self.add_menu_action(file_menu, 'Save', self.save_file, 'Ctrl+S')
+        self.add_menu_action(file_menu, 'Open', self.open_file, 'Ctrl+O')
+        self.add_menu_action(file_menu, 'Save', lambda: self.save_file(False), 'Ctrl+S')
+        self.add_menu_action(file_menu, 'Save As', lambda: self.save_file(True), 'Ctrl+Alt+S')
         self.add_menu_action(file_menu, 'Export to XML', self.export_to_xml, 'Ctrl+E')
         # Insert Menu
         insert_menu = menubar.addMenu('Insert')
@@ -364,10 +392,12 @@ class LeidenEditor(QMainWindow):
         tree = self.parser.parse_full(text)
         if tree:
             xml = self.transformer.transform(tree)
-            print('XML OUTPUT')
-            print(xml)
+            self.msg.setWindowTitle('Preview')
+            self.msg.setInformativeText('Click "Show Details" to inspect transformer results. File export not yet implemented.')
+            self.msg.setDetailedText(xml)
+            self.msg.setVisible(True)
         else:
-            QMessageBox.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
+            self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
 
     def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None):
         action = QAction(action_name, self)
@@ -396,8 +426,29 @@ class LeidenEditor(QMainWindow):
     def new_file(self):
         self.editor.clear()
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
+        self.setWindowTitle(f'Leiden+ Editor - New File')
+        self.set_cursor_position(3, 3)
+        self.file_path = ''
 
-    def save_file(self):
+    def open_file(self):
+        path, _ = self.file_dialog.getOpenFileName(filter='*.leiden')
+        if path:
+            with open(path, 'r', encoding='utf-8') as file:
+                text = file.read()
+            self.editor.setPlainText(text)
+            self.setWindowTitle(f'Leiden+ Editor - {path}')
+            self.file_path = path
+
+    def save_file(self, show_dialog):
+        if show_dialog:
+            path, _ = self.file_dialog.getSaveFileName(filter='*.leiden')
+        else:
+            path = self.file_path
+        if path:
+            with open(path, 'w', encoding='utf-8') as file:
+                file.write(self.editor.toPlainText())
+                self.file_path = path
+                self.setWindowTitle(f'Leiden+ Editor - {path}')
         return
 
 if __name__ == "__main__":
