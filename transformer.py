@@ -336,7 +336,7 @@ class LeidenTransformer(Transformer):
         return inner_xml(f'<ex{cert_low}>', children[0], '</ex>')
 
     def expansion(self, children):
-        return inner_xml('<expan>', children, '</expan')
+        return inner_xml('<expan>', children, '</expan>')
 
     def lem(self, children):
         return lem_rdg(children, 'lem')
