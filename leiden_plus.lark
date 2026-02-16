@@ -8,7 +8,7 @@ div: "\n" div_start ["\n"] TEXTBLOCK_OPEN item+ "\n" TEXTBLOCK_CLOSE ["\n"] DIV_
 div_start: "<D=." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
 
 _LINE_START: NEWLINE
-?leiden_line: [_LINE_START] (items
+_leiden_line: [_LINE_START] (items
             | default_language
             | div_start [TEXTBLOCK_OPEN]
             | [TEXTBLOCK_CLOSE] DIV_CLOSE
@@ -145,7 +145,7 @@ items: item+
     | lines_untranscribed
     | characters_untranscribed
 
-?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | add_above | unclear
+?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | unclear
 
 // PRESERVATION (VACAT, VESTIGES
 vacat: "vac." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]

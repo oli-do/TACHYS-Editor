@@ -1,5 +1,4 @@
 import re
-from shared import greek_pattern
 
 
 def format_numerals(text):
@@ -16,12 +15,21 @@ def format_numerals(text):
         if len(clean_token) > 4:
             return text
         thousands = r'[αβγδεϛϚϝϜζηθ]'
-        hundreds = r'[ρστυφχψω\u03e1\u03e0]?'
-        tens = r'[ικλμνξοπ\u03DF\u03DE]?'
+        hundreds = r'[ρστυφχψω\u03e1\u03e0]'
+        tens = r'[ικλμνξοπ\u03DF\u03DE]'
         ones = r'[αβγδϵϛϚϝϜζηθ]'
-        print(thousands + "?" + hundreds + tens + ones, clean_token)
-        if not re.fullmatch(thousands + "?" + hundreds + tens + ones, clean_token):
-            return text
+        if len(clean_token) == 4:
+            if not re.fullmatch(thousands + hundreds + '?' + tens + '?' + ones + '?', clean_token):
+                return text
+        elif len(clean_token) == 3:
+            if not re.fullmatch(hundreds + tens + '?' + ones + '?', clean_token):
+                return text
+        elif len(clean_token) == 2:
+            if not re.fullmatch(tens + ones + '?', clean_token):
+                return text
+        elif len(clean_token) == 1:
+            if not re.fullmatch(ones, clean_token):
+                return text
         value = 0
         skip_iteration = False
         if len(clean_token) > 1 and re.fullmatch(thousands + hundreds + tens + ones, clean_token):
@@ -77,6 +85,7 @@ class PasteManager:
                             new_word += 'σ'
                         else:
                             foreshadow = word[i:len(word)]
+                            greek_pattern = '\u037e-\u03ce\u03da-\u03e4\u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345'
                             print(foreshadow)
                             if re.findall(r'[' + greek_pattern + r']+', foreshadow):
                                 new_word += 'σ'
