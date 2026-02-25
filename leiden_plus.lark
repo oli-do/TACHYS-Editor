@@ -49,8 +49,8 @@ GREEK_CHAR: /[α-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝ
 NON_DEF_TEXT: /.[^|]+/
 NOTE_TEXT: /.[^*]+/
 NAME: /[a-zA-Z]+/
-RESP: /[ \-.:,()a-zA-Z0-9]+/
-RESP_NO_COLON: /[ \-.,()a-zA-Z0-9]+/
+RESP: /[ \-.:,()\p{L}0-9]+/
+RESP_NO_COLON: /[ \-.,()\p{L}0-9]+/
 NAME_HYPHEN: /[a-zA-Z\-]+/
 NAME_OR_NUMBER: /[a-zA-Z0-9+]+/
 FRACTION: /[0-9]+\/[0-9]+/
@@ -145,7 +145,7 @@ items: item+
     | lines_untranscribed
     | characters_untranscribed
 
-?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | unclear
+?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | unclear | line | line_margin | line_rend | line_formatted
 
 // PRESERVATION (VACAT, VESTIGES
 vacat: "vac." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]

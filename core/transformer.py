@@ -383,12 +383,12 @@ class LeidenTransformer(Transformer):
 
     def app_reg(self, children):
         reg = children[0]
-        orig = f'<orig{children[1]}</orig>'
+        orig = f'<orig>{children[1]}</orig>'
         return f'<choice>{reg}{orig}</choice>'
 
     def app_reg_multi(self, children):
         reg = ''.join(children[0:-1])
-        orig = f'<orig{children[-1]}</orig>'
+        orig = f'<orig>{children[-1]}</orig>'
         return f'<choice>{reg}{orig}</choice>'
 
     def app_corr(self, children):

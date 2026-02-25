@@ -1,14 +1,20 @@
-from PySide6.QtCore import Qt, QSize, QRect, QTimer
-from PySide6.QtWidgets import QPlainTextEdit, QWidget
-from PySide6.QtGui import QColor, QTextCursor, QPainter
+from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
+from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
 from core.format import PasteManager, format_numerals
 from core.debug import DebugWorker
-from core.parser import LeidenParser
 import unicodedata
 import roman
 import re
 import pyperclip
 from ui.highlighter import LeidenHighlighter
+
+added_fmt = QTextCharFormat()
+added_fmt.setBackground(QColor("#d4fedd"))
+deleted_fmt = QTextCharFormat()
+deleted_fmt.setBackground(QColor("#fdd4d4"))
+deleted_fmt.setFontStrikeOut(True)
+normal_fmt = QTextCharFormat()
 
 
 class LeftWidget(QWidget):
@@ -27,6 +33,8 @@ class LeidenEditor(QPlainTextEdit):
         super().__init__()
         self.line_text = ''
         self.line_break = False
+        self.do_debugging = True
+        self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.paste_mgr = PasteManager()
         self.original_paste_text = ''
         self.selected_text = ''
@@ -35,16 +43,53 @@ class LeidenEditor(QPlainTextEdit):
         self.updateRequest.connect(self.update_left_widget_area)
         self.update_left_widget_width(0)
         self.highlighter = LeidenHighlighter(self.document())
-        self.parser = LeidenParser()
         self.debug_worker = DebugWorker()
         self.debug_worker.syntax_errors.connect(self.highlighter.update_error_highlighting)
         self.debug_timer = QTimer()
         self.debug_timer.setSingleShot(True)
         self.debug_timer.timeout.connect(self.start_debugging)
         self.textChanged.connect(self.on_text_change)
+        self.cursorPositionChanged.connect(self.on_cursor_position_changed)
+        self.highlight_current_line()
+
+    def show_changes(self, line_diff_list: list):
+        self.stop_debugging()
+        cursor = self.textCursor()
+        cursor.beginEditBlock()
+        self.clear()
+        self.setUpdatesEnabled(False)
+        for line in line_diff_list:
+            for tag, text in line:
+                if tag == 1:
+                    cursor.insertText(text, added_fmt)
+                elif tag == -1:
+                    cursor.insertText(text, deleted_fmt)
+                elif tag == 0:
+                    cursor.insertText(text, normal_fmt)
+            cursor.insertBlock()
+        cursor.endEditBlock()
+        self.setUpdatesEnabled(True)
+        self.setReadOnly(True)
+
+    def on_cursor_position_changed(self):
+        self.highlight_current_line()
+
+    @Slot()
+    def highlight_current_line(self):
+        extra_selections = []
+        if not self.isReadOnly():
+            selection = QTextEdit.ExtraSelection()
+            line_color = QColor('#e8f2fe')
+            selection.format.setBackground(line_color)
+            selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
+            selection.cursor = self.textCursor()
+            selection.cursor.clearSelection()
+            extra_selections.append(selection)
+        self.setExtraSelections(extra_selections)
 
     def on_text_change(self):
-        self.debug_timer.start(600)
+        if self.do_debugging:
+            self.debug_timer.start(600)
 
     def start_debugging(self):
         if self.debug_worker.is_running:
@@ -59,6 +104,17 @@ class LeidenEditor(QPlainTextEdit):
             block = block.next()
         self.debug_worker.set_visible_lines(visible_lines)
         self.debug_worker.run()
+
+    def continue_debugging(self):
+        self.do_debugging = True
+        self.debug_worker.enable()
+        self.setReadOnly(False)
+
+    def stop_debugging(self):
+        self.do_debugging = False
+        self.debug_worker.disable()
+        self.highlighter.parser_errors = []
+        self.highlighter.do_error_highlighting = False
 
     def left_widget_width(self):
         digits = len(str(max(1, self.blockCount()))) + 2
@@ -122,6 +178,16 @@ class LeidenEditor(QPlainTextEdit):
         self.left_widget.setGeometry(
             QRect(cr.left(), cr.top(), self.left_widget_width(), cr.height())
         )
+
+    def wheelEvent(self, event):
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            if event.angleDelta().y() > 0:
+                self.zoomIn(1)
+            else:
+                self.zoomOut(1)
+            event.accept()
+        else:
+            super().wheelEvent(event)
 
     def keyPressEvent(self, event):
         cursor = self.textCursor()

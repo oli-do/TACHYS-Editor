@@ -43,7 +43,7 @@ class LeidenHighlighter(QSyntaxHighlighter):
         # keywords
         keyword_format = QTextCharFormat()
         keyword_format.setForeground(QColor("darkMagenta"))
-        self.highlighting_rules.append((r'ed|reg|subst|alt|corr', keyword_format))
+        self.highlighting_rules.append((r'\|(ed|reg|subst|alt|corr)\|', keyword_format))
         self.highlighting_rules.append((r'\|', keyword_format))
         self.highlighting_rules.append((r'<:|:>', keyword_format))
         self.highlighting_rules.append((r'<|>', keyword_format))
@@ -60,7 +60,7 @@ class LeidenHighlighter(QSyntaxHighlighter):
         # overwrite .?
         self.highlighting_rules.append((r'(ca)?\.[0-9\?]+-?[0-9]*', special_format))
         self.highlighting_rules.append((r'vac\.(ca\.)?[0-9\?]+-?[0-9]*(lin)?', special_format))
-        self.highlighting_rules.append((r'lost\.[0-9\?]+-?[0-9]*(lin)?', special_format))
+        self.highlighting_rules.append((r'lost\.[0-9\?]+-?[0-9]*(lin)', special_format))
         self.highlighting_rules.append((r'vestig\.[0-9\?]+-?[0-9]*(lin)?', special_format))
         # one-line symbols
         self.highlighting_rules.append((r'--------', special_format))

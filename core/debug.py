@@ -18,8 +18,6 @@ def debug(text, previous_text):
                     lines_changed_indices.append(i)
             except IndexError:
                 lines_changed_indices.append(i)
-        if len(current_lines) != len(previous_lines):
-            lines_changed_indices = [n for n in range(len(current_lines))]
         parser.parse_line(current_lines, lines_changed_indices)
         error_info = [(error.id, error.line, error.column) for error in parser.errors]
         for error in error_info:
@@ -49,19 +47,28 @@ class DebugWorker(QObject):
         self.visible_lines = []
         self.previous_text = ''
         self.is_running = False
+        self.enabled = True
         self.executor = ProcessPoolExecutor(max_workers=1)
 
     def run(self):
-        self.is_running = True
-        future = self.executor.submit(debug, self.text, self.previous_text)
-        future.add_done_callback(self.on_finished)
+        if self.enabled:
+            self.is_running = True
+            future = self.executor.submit(debug, self.text, self.previous_text)
+            future.add_done_callback(self.on_finished)
+
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
 
     def on_finished(self, future):
         self.is_running = False
-        result = future.result()
-        if result is not None:
-            self.previous_text = self.text
-            self.syntax_errors.emit(result)
+        if self.enabled:
+            result = future.result()
+            if result is not None:
+                self.previous_text = self.text
+                self.syntax_errors.emit(result)
 
     def set_text(self, text):
         self.text = text

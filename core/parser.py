@@ -29,9 +29,9 @@ class LeidenParser:
         with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
         if is_debugger:
-            parser = Lark(leiden_grammar, parser='earley', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve')
+            parser = Lark(leiden_grammar, parser='earley', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve', regex=True)
         else:
-            parser = Lark(leiden_grammar, parser='earley')
+            parser = Lark(leiden_grammar, parser='earley', regex=True)
         try:
             tree = parser.parse(text)
             if self.print_debug_info:
@@ -56,7 +56,7 @@ class LeidenParser:
         with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
         leiden_grammar = leiden_grammar.replace('_LINE_START: NEWLINE', '_LINE_START: "!"')
-        parser = Lark(leiden_grammar, parser='earley', start='_leiden_line', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve')
+        parser = Lark(leiden_grammar, parser='earley', start='_leiden_line', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve', regex=True)
         for i in line_indices:
             for error in self.errors:
                 if error.line == i + 1:

@@ -1,14 +1,25 @@
-from PySide6.QtGui import QFont, QTextCursor, QAction, Qt
+from os.path import basename
+import pickle
+from PySide6.QtGui import QFont, QTextCursor, QAction
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QApplication
 from typing import Callable
 from core.parser import LeidenParser
+from core.change_tracker import ChangeTracker
 from ui.editor import LeidenEditor
 from core.transformer import LeidenTransformer
+
+tracking_directory = 'changes'
 
 
 class LeidenEditorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.parser = LeidenParser()
+        self.transformer = LeidenTransformer()
+        self.tracker = ChangeTracker(tracking_directory)
+        # Settings
+        self.saving_enabled = True
+        self.imported_change_log = None
         # Initialize Window
         screen = QApplication.primaryScreen()
         size = screen.size()
@@ -22,37 +33,45 @@ class LeidenEditorWindow(QMainWindow):
         self.editor_font = QFont('Cardo')
         self.editor_font.setPointSize(round(0.011 * self.screen_height))
         self.editor.setFont(self.editor_font)
-        self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
-        self.setWindowTitle("Leiden+ Editor - New File")
         self.resize(self.width, self.height)
         self.file_dialog = QFileDialog()
         self.msg = QMessageBox()
         self.file_path = ''
+        # Menus
+        self.menubar = self.menuBar()
         self.init_ui()
-        # Parser and Transformer
-        self.parser = LeidenParser()
-        self.transformer = LeidenTransformer()
+        # New File
+        self.new_file()
+
+    def get_menu_action(self, parent, action_name: str):
+        for action in parent.actions():
+            if action.text() == action_name:
+                return action
+            if action.menu():
+                result = self.get_menu_action(action.menu(), action_name)
+                if result:
+                    return result
+        return None
 
     def init_ui(self):
         self.set_cursor_position(3, 3)
-        # Menu Bar
-        menubar = self.menuBar()
         # File Menu
-        file_menu = menubar.addMenu('File')
+        file_menu = self.menubar.addMenu('File')
         self.add_menu_action(file_menu, 'New', self.new_file, 'Ctrl+N')
-        self.add_menu_action(file_menu, 'Open', self.open_file, 'Ctrl+O')
-        self.add_menu_action(file_menu, 'Save', lambda: self.save_file(False), 'Ctrl+S')
-        self.add_menu_action(file_menu, 'Save As', lambda: self.save_file(True), 'Ctrl+Alt+S')
+        self.add_menu_action(file_menu, 'Open', lambda: self.open_file(), 'Ctrl+O')
+        self.add_menu_action(file_menu, 'Save', lambda: self.save_file(False, self.create_leiden_file()), 'Ctrl+S')
+        self.add_menu_action(file_menu, 'Save As', lambda: self.save_file(True, self.create_leiden_file()), 'Ctrl+Alt+S')
         self.add_menu_action(file_menu, 'Export to XML', self.export_to_xml, 'Ctrl+E')
+        self.add_menu_action(file_menu, 'Export to TXT', self.export_to_txt, 'Ctrl+Alt+E')
         # Insert Menu
-        insert_menu = menubar.addMenu('Insert')
+        insert_menu = self.menubar.addMenu('Insert')
         submenu_diacriticals = QMenu('Ancient Diacriticals', self)
-        self.add_menu_action(submenu_diacriticals, 'Acute', lambda: self.insert_str('´'))
-        self.add_menu_action(submenu_diacriticals, 'Asper', lambda: self.insert_str(' ῾'))
-        self.add_menu_action(submenu_diacriticals, 'Circumflex', lambda: self.insert_str('^'))
-        self.add_menu_action(submenu_diacriticals, 'Diaresis', lambda: self.insert_str('¨'))
-        self.add_menu_action(submenu_diacriticals, 'Grave', lambda: self.insert_str('`'))
-        self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str(' ᾿'))
+        self.add_menu_action(submenu_diacriticals, 'Acute', lambda: self.insert_str('(´)'))
+        self.add_menu_action(submenu_diacriticals, 'Asper', lambda: self.insert_str('( ῾)'))
+        self.add_menu_action(submenu_diacriticals, 'Circumflex', lambda: self.insert_str('(^)'))
+        self.add_menu_action(submenu_diacriticals, 'Diaresis', lambda: self.insert_str('(¨)'))
+        self.add_menu_action(submenu_diacriticals, 'Grave', lambda: self.insert_str('(`)'))
+        self.add_menu_action(submenu_diacriticals, 'Lenis', lambda: self.insert_str('( ᾿)'))
         insert_menu.addMenu(submenu_diacriticals)
         submenu_apparatus = QMenu('Apparatus', self)
         self.add_menu_action(submenu_apparatus, 'Alternate Reading', lambda: self.insert_str('<:{text}|alt|:>'))
@@ -70,16 +89,85 @@ class LeidenEditorWindow(QMainWindow):
         self.add_menu_action(insert_menu, 'Paragraphos', lambda: self.insert_str('----'), 'Ctrl+P')
         self.add_menu_action(insert_menu, 'Supralinear Stroke\tCtrl+[MINUS]', lambda: self.insert_str('\u0304'))
         self.add_menu_action(insert_menu, 'Underdot\tCtrl +[PERIOD]', lambda: self.insert_str('\u0323'))
+        # Changes Menu
+        changes_menu = self.menubar.addMenu('Changes')
+        track_changes_action = self.add_menu_action(changes_menu, 'Track Changes', lambda checked: self.start_tracking(checked))
+        track_changes_action.setCheckable(True)
+        import_change_log_action = self.add_menu_action(changes_menu, 'Import Change Log', lambda checked: self.import_change_log(checked))
+        import_change_log_action.setCheckable(True)
+        show_changes_action = self.add_menu_action(changes_menu, 'Show Changes', lambda checked: self.show_changes(checked))
+        show_changes_action.setCheckable(True)
+        self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log)
+
+    def start_tracking(self, checked):
+        if checked:
+            if not self.file_path:
+                if not self.save_file(True, self.create_leiden_file()):
+                    self.get_menu_action(self.menubar, 'Track Changes').setChecked(False)
+                    return
+            self.tracker.active = True
+            self.tracker.write_changes(basename(self.file_path), self.editor.toPlainText())
+            self.tracker.commit_changes()
+        else:
+            msg = QMessageBox.warning(self, 'Reset Change Tracking', 'Be aware that this action will fully reset your change tracking!', buttons=QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+            if msg == QMessageBox.StandardButton.Ok:
+                self.tracker.active = False
+            else:
+                self.get_menu_action(self.menubar, 'Track Changes').setChecked(True)
+
+    def export_change_log(self):
+        if self.tracker.active and self.saving_enabled:
+            self.save_file(False, self.create_leiden_file())
+            path, _ = self.file_dialog.getSaveFileName(filter='*.leiden_changelog')
+            if path:
+                with open(path, 'wb') as f:
+                    pickle.dump(self.tracker.parse_word_diff(basename(self.file_path)), f)
+
+    def import_change_log(self, checked):
+        if checked:
+            path, _ = self.file_dialog.getOpenFileName(filter='*.leiden_changelog')
+            if path:
+                with open(path, 'rb') as f:
+                    self.imported_change_log = pickle.load(f)
+            else:
+                self.get_menu_action(self.menubar, 'Import Change Log').setChecked(False)
+        else:
+            self.imported_change_log = None
+
+    def show_changes(self, checked):
+        scrollbar = self.editor.verticalScrollBar()
+        scroll_position = scrollbar.value()
+        print('show_changes:', self.imported_change_log)
+        if checked:
+            if self.tracker.active or self.imported_change_log:
+                if self.save_file(False, self.create_leiden_file()):
+                    self.saving_enabled = False
+                    if not self.imported_change_log:
+                        diffs = self.tracker.parse_word_diff(basename(self.file_path))
+                    else:
+                        diffs = self.imported_change_log
+                    self.editor.show_changes(diffs)
+                else:
+                    self.get_menu_action(self.menubar, 'Show Changes').setChecked(False)
+            else:
+                self.get_menu_action(self.menubar, 'Show Changes').setChecked(False)
+        else:
+            if self.file_path:
+                self.open_file(self.file_path)
+                self.editor.continue_debugging()
+                self.saving_enabled = True
+        scrollbar.setValue(scroll_position)
+
+    def export_to_txt(self):
+        text = self.editor.toPlainText()
+        self.save_file(True, text, '*.txt')
 
     def export_to_xml(self):
         text = self.editor.toPlainText()
         tree = self.parser.parse_full(text, False)
         if tree:
             xml = self.transformer.transform(tree)
-            self.msg.setWindowTitle('Preview')
-            self.msg.setInformativeText('Click "Show Details" to inspect transformer results. File export not yet implemented.')
-            self.msg.setDetailedText(xml)
-            self.msg.setVisible(True)
+            self.save_file(True, xml, '*.xml')
         else:
             self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
 
@@ -107,31 +195,73 @@ class LeidenEditorWindow(QMainWindow):
         cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, column)
         self.editor.setTextCursor(cursor)
 
+    def reset(self):
+        self.tracker.active = False
+        self.saving_enabled = True
+        self.get_menu_action(self.menubar, 'Show Changes').setChecked(False)
+        self.editor.setReadOnly(False)
+
     def new_file(self):
+        self.reset()
         self.editor.clear()
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
         self.setWindowTitle(f'Leiden+ Editor - New File')
         self.set_cursor_position(3, 3)
         self.file_path = ''
 
-    def open_file(self):
-        path, _ = self.file_dialog.getOpenFileName(filter='*.leiden')
+    def open_file(self, path=None):
+        if not path:
+            path, _ = self.file_dialog.getOpenFileName(filter='*.leiden *.txt')
         if path:
+            self.reset()
             with open(path, 'r', encoding='utf-8') as file:
-                text = file.read()
+                file_content = file.read()
+            data = file_content.split('&')
+            if data[0] == '0.1.0':
+                settings = data[1].split(';')
+                if len(settings) >= 1:
+                    if bool(settings[0]):
+                        if self.tracker.request_active(basename(path)):
+                            self.get_menu_action(self.menubar, 'Track Changes').setChecked(True)
+                text = data[2]
+            else:
+                self.tracker.request_active(basename(path))
+                text = file_content
             self.editor.setPlainText(text)
             self.editor.start_debugging()
             self.setWindowTitle(f'Leiden+ Editor - {path}')
             self.file_path = path
 
-    def save_file(self, show_dialog):
-        if show_dialog or not self.file_path:
-            path, _ = self.file_dialog.getSaveFileName(filter='*.leiden')
+    def create_leiden_file(self):
+        # 1st line: file version
+        text = '0.1.0&'
+        # 2nd line: settings (split by semicolon)
+        if self.tracker.active:
+            text += '1;'
         else:
+            text += '0;'
+        # 3rd line: text
+        text += '&' + self.editor.toPlainText()
+        return text
+
+    def save_file(self, show_dialog, text_to_write: str, file_filter='*.leiden'):
+        if not self.saving_enabled:
+            QMessageBox.warning(self, 'Saving Disabled', 'Due to the current viewing mode, saving is disabled.')
+            return False
+        if show_dialog or not self.file_path:
+            path, _ = self.file_dialog.getSaveFileName(filter=file_filter)
+        elif file_filter == '*.leiden':
             path = self.file_path
+        else:
+            return False
         if path:
             with open(path, 'w', encoding='utf-8') as file:
-                file.write(self.editor.toPlainText())
+                file.write(text_to_write)
+            if file_filter == '*.leiden':
                 self.file_path = path
                 self.setWindowTitle(f'Leiden+ Editor - {path}')
-        return
+                if self.tracker.active:
+                    self.tracker.write_changes(basename(self.file_path), self.editor.toPlainText())
+            return True
+        else:
+            return False
