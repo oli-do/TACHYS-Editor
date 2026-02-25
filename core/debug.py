@@ -20,11 +20,22 @@ def debug(text, previous_text):
                 lines_changed_indices.append(i)
         parser.parse_line(current_lines, lines_changed_indices)
         error_info = [(error.id, error.line, error.column) for error in parser.errors]
+        debug_block = False
         for error in error_info:
-            index = error[1]
-            if index < len(current_lines):
-                if re.findall(r'^\(?[0-9]+\.-|^[0-9]+,[a-z]+\.-', current_lines[index]):
-                    return debug_full(text, previous_text)
+            index = error[1] - 1
+            indices = [index - 1, index, index + 1]
+            for i in indices:
+                if debug_block:
+                    break
+                try:
+                    if re.match(r'\(?[0-9]+\.-|[0-9]+,[a-z]+\.-', current_lines[i]):
+                        print(debug_block)
+                        debug_block = True
+                except IndexError:
+                    continue
+        if debug_block:
+            parser.parse_full(text)
+        error_info = [(error.id, error.line, error.column) for error in parser.errors]
         return error_info
     else:
         return None
