@@ -61,24 +61,27 @@ class PasteManager:
         self.supralinear_stroke = '[\ue6b7\ue790]'
 
     @staticmethod
-    def replace_lunate_sigma(text):
+    def char_level_replacements(text):
         print(text)
         lines = text.split('\n')
         new_lines = []
         for line in lines:
-            if not re.match(r'.*[ϲcϹC]', line):
+            if not re.match(r'.*[ϲcϹC]', line) and not 'µ' in line:
                 new_lines.append(line)
                 continue
             words = line.split()
             new_words = []
             for word in words:
-                if not re.match(r'.*[ϲcϹC]', word):
+                if not re.match(r'.*[ϲcϹC]', word) and not 'µ' in word:
                     new_words.append(word)
                     continue
                 new_word = ''
                 for i in range(len(word)):
                     char = word[i]
-                    if char == 'ϲ' or char == 'c':
+                    # replace micro sign
+                    if char == '\u00b5':
+                        new_word += 'μ'
+                    elif char == 'ϲ' or char == 'c':
                         if i == len(word) - 1:
                             new_word += 'ς'
                         elif i == 0:
@@ -120,7 +123,7 @@ class PasteManager:
 
     @staticmethod
     def replace_brackets(text):
-        if not re.match('\[', text):
+        if not re.match(r'\[', text):
             return text
         brackets = set(list(re.findall(r'\[.[^]]+]', text)))
         for bracket in brackets:

@@ -1,6 +1,6 @@
 from PySide6.QtCore import QObject, Signal
 from concurrent.futures import ProcessPoolExecutor
-import re
+
 
 from core.parser import LeidenParser
 parser = LeidenParser()
@@ -19,22 +19,6 @@ def debug(text, previous_text):
             except IndexError:
                 lines_changed_indices.append(i)
         parser.parse_line(current_lines, lines_changed_indices)
-        error_info = [(error.id, error.line, error.column) for error in parser.errors]
-        debug_block = False
-        for error in error_info:
-            index = error[1] - 1
-            indices = [index - 1, index, index + 1]
-            for i in indices:
-                if debug_block:
-                    break
-                try:
-                    if re.match(r'\(?[0-9]+\.-|[0-9]+,[a-z]+\.-', current_lines[i]):
-                        print(debug_block)
-                        debug_block = True
-                except IndexError:
-                    continue
-        if debug_block:
-            parser.parse_full(text)
         error_info = [(error.id, error.line, error.column) for error in parser.errors]
         return error_info
     else:
@@ -55,7 +39,6 @@ class DebugWorker(QObject):
     def __init__(self):
         super().__init__()
         self.text = ''
-        self.visible_lines = []
         self.previous_text = ''
         self.is_running = False
         self.enabled = True
@@ -84,5 +67,3 @@ class DebugWorker(QObject):
     def set_text(self, text):
         self.text = text
 
-    def set_visible_lines(self, visible_lines):
-        self.visible_lines = visible_lines

@@ -7,7 +7,8 @@ superdiv: "\n" div_start (superdiv | div)+ "\n" DIV_CLOSE
 div: "\n" div_start ["\n"] TEXTBLOCK_OPEN item+ "\n" TEXTBLOCK_CLOSE ["\n"] DIV_CLOSE
 div_start: "<D=." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
 
-_LINE_START: NEWLINE
+_LINE_START: NEWLINE | "\ue747"
+_leiden_lines: _leiden_line+
 _leiden_line: [_LINE_START] (items
             | default_language
             | div_start [TEXTBLOCK_OPEN]
@@ -63,7 +64,7 @@ EXTENT_UNKNOWN: "?"
 CERT_LOW: "?" | "(?)"
 SLASHES: "/ "
 CROSS_STROKES: "X "
-LANG: "grc" | "ar" | "cop" | "egy-Egyd" | "la" | "grc-Latn" | "la-Grek"
+LANG: "grc" | "ar" | "cop" | "egy-Egyd" | "la" | "grc-Latn" | "la-Grek" | "cop-Grek"
 REND: "extension" | "diple"
 SUPRA_ALPHA_SMALL: "ᾱ"
 SUPRA_ALPHA_CAPITAL: "Ᾱ"
@@ -228,7 +229,7 @@ app_alt: "<:" lem "|alt|" rdg ":>"
 app_alt_multi: "<:" lem "||alt||" rdg ("|" rdg)+ ":>"
 
 // LANGUAGE
-non_default_language: "~|" NON_DEF_TEXT "|~" LANG
+non_default_language: "~|" NON_DEF_TEXT "|~" LANG " "
 omitted_language: "(Lang: " NAME " " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) " " (LIN | CHAR) ")"
 
 // UNTRANSCRIBED

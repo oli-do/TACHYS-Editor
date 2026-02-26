@@ -404,7 +404,7 @@ class LeidenTransformer(Transformer):
     def app_alt(self, children):
         lem = children[0]
         rdg = children[1]
-        return f'<app type="alternative">{lem}{rdg}></app>'
+        return f'<app type="alternative">{lem}{rdg}</app>'
 
     def app_alt_multi(self, children):
         lem = children[0]

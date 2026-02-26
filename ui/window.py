@@ -20,6 +20,7 @@ class LeidenEditorWindow(QMainWindow):
         # Settings
         self.saving_enabled = True
         self.imported_change_log = None
+        self.original_text = ''
         # Initialize Window
         screen = QApplication.primaryScreen()
         size = screen.size()
@@ -27,11 +28,14 @@ class LeidenEditorWindow(QMainWindow):
         self.screen_height = size.height()
         self.width = round(0.75 * self.screen_width)
         self.height = round(0.75 * self.screen_height)
+        window_font = self.font()
+        window_font.setPointSize((round(0.01 * self.screen_height)))
+        self.setFont(window_font)
         # Initialize Editor
         self.editor = LeidenEditor()
         self.setCentralWidget(self.editor)
         self.editor_font = QFont('Cardo')
-        self.editor_font.setPointSize(round(0.011 * self.screen_height))
+        self.editor_font.setPointSize(round(0.013 * self.screen_height))
         self.editor.setFont(self.editor_font)
         self.resize(self.width, self.height)
         self.file_dialog = QFileDialog()
@@ -40,6 +44,8 @@ class LeidenEditorWindow(QMainWindow):
         # Menus
         self.menubar = self.menuBar()
         self.init_ui()
+        self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
+        self.action_show_changes = self.get_menu_action(self.menubar, 'Show Changes')
         # New File
         self.new_file()
 
@@ -52,6 +58,12 @@ class LeidenEditorWindow(QMainWindow):
                 if result:
                     return result
         return None
+
+    @staticmethod
+    def set_checked_no_signal(action, checked: bool):
+        action.blockSignals(True)
+        action.setChecked(checked)
+        action.blockSignals(False)
 
     def init_ui(self):
         self.set_cursor_position(3, 3)
@@ -91,19 +103,20 @@ class LeidenEditorWindow(QMainWindow):
         self.add_menu_action(insert_menu, 'Underdot\tCtrl +[PERIOD]', lambda: self.insert_str('\u0323'))
         # Changes Menu
         changes_menu = self.menubar.addMenu('Changes')
-        track_changes_action = self.add_menu_action(changes_menu, 'Track Changes', lambda checked: self.start_tracking(checked))
+        changes_menu.setToolTipsVisible(True)
+        track_changes_action = self.add_menu_action(changes_menu, 'Track Changes', lambda checked: self.start_tracking(checked), tooltip='Sets your current Leiden+ text as a reference and tracks changes')
         track_changes_action.setCheckable(True)
-        import_change_log_action = self.add_menu_action(changes_menu, 'Import Change Log', lambda checked: self.import_change_log(checked))
+        import_change_log_action = self.add_menu_action(changes_menu, 'Import Change Log', lambda checked: self.import_change_log(checked), tooltip='Import an external change log')
         import_change_log_action.setCheckable(True)
-        show_changes_action = self.add_menu_action(changes_menu, 'Show Changes', lambda checked: self.show_changes(checked))
+        show_changes_action = self.add_menu_action(changes_menu, 'Show Changes', lambda checked: self.show_changes(checked), tooltip='Shows changes, prioritizes imported change logs')
         show_changes_action.setCheckable(True)
-        self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log)
+        self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log, tooltip='Export your changes to a file')
 
     def start_tracking(self, checked):
         if checked:
             if not self.file_path:
                 if not self.save_file(True, self.create_leiden_file()):
-                    self.get_menu_action(self.menubar, 'Track Changes').setChecked(False)
+                    self.set_checked_no_signal(self.action_track_changes, False)
                     return
             self.tracker.active = True
             self.tracker.write_changes(basename(self.file_path), self.editor.toPlainText())
@@ -113,7 +126,7 @@ class LeidenEditorWindow(QMainWindow):
             if msg == QMessageBox.StandardButton.Ok:
                 self.tracker.active = False
             else:
-                self.get_menu_action(self.menubar, 'Track Changes').setChecked(True)
+                self.set_checked_no_signal(self.action_track_changes, True)
 
     def export_change_log(self):
         if self.tracker.active and self.saving_enabled:
@@ -137,25 +150,29 @@ class LeidenEditorWindow(QMainWindow):
     def show_changes(self, checked):
         scrollbar = self.editor.verticalScrollBar()
         scroll_position = scrollbar.value()
-        print('show_changes:', self.imported_change_log)
         if checked:
             if self.tracker.active or self.imported_change_log:
-                if self.save_file(False, self.create_leiden_file()):
-                    self.saving_enabled = False
-                    if not self.imported_change_log:
-                        diffs = self.tracker.parse_word_diff(basename(self.file_path))
-                    else:
-                        diffs = self.imported_change_log
-                    self.editor.show_changes(diffs)
+                if self.file_path:
+                    self.original_text = ''
+                    self.save_file(False, self.create_leiden_file())
                 else:
-                    self.get_menu_action(self.menubar, 'Show Changes').setChecked(False)
+                    self.original_text = self.editor.toPlainText()
+                self.saving_enabled = False
+                if not self.imported_change_log:
+                    diffs = self.tracker.parse_word_diff(basename(self.file_path))
+                else:
+                    diffs = self.imported_change_log
+                self.editor.show_changes(diffs)
             else:
-                self.get_menu_action(self.menubar, 'Show Changes').setChecked(False)
+                self.action_show_changes.setChecked(False)
         else:
             if self.file_path:
                 self.open_file(self.file_path)
                 self.editor.continue_debugging()
                 self.saving_enabled = True
+            else:
+                self.editor.setPlainText(self.original_text)
+                self.editor.continue_debugging()
         scrollbar.setValue(scroll_position)
 
     def export_to_txt(self):
@@ -171,12 +188,14 @@ class LeidenEditorWindow(QMainWindow):
         else:
             self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
 
-    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None):
+    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None, tooltip: str = None):
         action = QAction(action_name, self)
         if shortcut:
             action.setShortcut(shortcut)
         if action_connector:
             action.triggered.connect(action_connector)
+        if tooltip:
+            action.setToolTip(tooltip)
         menu.addAction(action)
         return action
 
@@ -196,14 +215,15 @@ class LeidenEditorWindow(QMainWindow):
         self.editor.setTextCursor(cursor)
 
     def reset(self):
+        self.editor.clear()
         self.tracker.active = False
+        self.set_checked_no_signal(self.action_track_changes, False)
         self.saving_enabled = True
-        self.get_menu_action(self.menubar, 'Show Changes').setChecked(False)
+        self.set_checked_no_signal(self.action_show_changes, False)
         self.editor.setReadOnly(False)
 
     def new_file(self):
         self.reset()
-        self.editor.clear()
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
         self.setWindowTitle(f'Leiden+ Editor - New File')
         self.set_cursor_position(3, 3)
@@ -216,13 +236,15 @@ class LeidenEditorWindow(QMainWindow):
             self.reset()
             with open(path, 'r', encoding='utf-8') as file:
                 file_content = file.read()
-            data = file_content.split('&')
+            data = file_content.split('\ue747')
             if data[0] == '0.1.0':
                 settings = data[1].split(';')
                 if len(settings) >= 1:
                     if bool(settings[0]):
                         if self.tracker.request_active(basename(path)):
-                            self.get_menu_action(self.menubar, 'Track Changes').setChecked(True)
+                            self.set_checked_no_signal(self.action_track_changes, True)
+                        else:
+                            self.set_checked_no_signal(self.action_track_changes, False)
                 text = data[2]
             else:
                 self.tracker.request_active(basename(path))
@@ -233,15 +255,16 @@ class LeidenEditorWindow(QMainWindow):
             self.file_path = path
 
     def create_leiden_file(self):
+        splitter = '\ue747'
         # 1st line: file version
-        text = '0.1.0&'
+        text = '0.1.0' + splitter
         # 2nd line: settings (split by semicolon)
         if self.tracker.active:
             text += '1;'
         else:
             text += '0;'
         # 3rd line: text
-        text += '&' + self.editor.toPlainText()
+        text += splitter + self.editor.toPlainText()
         return text
 
     def save_file(self, show_dialog, text_to_write: str, file_filter='*.leiden'):

@@ -89,20 +89,13 @@ class LeidenEditor(QPlainTextEdit):
 
     def on_text_change(self):
         if self.do_debugging:
-            self.debug_timer.start(600)
+            self.debug_timer.start(800)
 
     def start_debugging(self):
         if self.debug_worker.is_running:
-            self.debug_timer.start(100)
+            self.debug_timer.start(800)
             return
         self.debug_worker.set_text(self.toPlainText())
-        visible_lines = []
-        block = self.firstVisibleBlock()
-        while block.isValid():
-            if block.isVisible():
-                visible_lines.append(block.blockNumber())
-            block = block.next()
-        self.debug_worker.set_visible_lines(visible_lines)
         self.debug_worker.run()
 
     def continue_debugging(self):
@@ -245,7 +238,7 @@ class LeidenEditor(QPlainTextEdit):
             self.original_paste_text = pyperclip.paste()
             clipboard_text = pyperclip.paste()
             clipboard_text = unicodedata.normalize('NFC', clipboard_text)
-            clipboard_text = self.paste_mgr.replace_lunate_sigma(clipboard_text)
+            clipboard_text = self.paste_mgr.char_level_replacements(clipboard_text)
             clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
             clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
             clipboard_text = self.paste_mgr.replace_brackets(clipboard_text)
