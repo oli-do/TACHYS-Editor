@@ -14,7 +14,7 @@ def insert(leiden_text: str):
 
 
 def parser_test(text: str):
-    parser.parse(text)
+    parser.parse_full(text)
     return parser.errors
 
 

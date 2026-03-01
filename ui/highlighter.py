@@ -10,6 +10,8 @@ class LeidenHighlighter(QSyntaxHighlighter):
         self.parser_errors = []
         self.markup_format = QTextCharFormat()
         self.markup_format.setForeground(QColor("green"))
+        self.unclear_format = QTextCharFormat()
+        self.unclear_format.setForeground(QColor("darkGreen"))
         self.special_format = QTextCharFormat()
         self.special_format.setForeground(QColor("blue"))
         self.keyword_format = QTextCharFormat()
@@ -30,14 +32,12 @@ class LeidenHighlighter(QSyntaxHighlighter):
 
     def set_highlighting_rules(self):
         # marked up text
-        self.highlighting_rules.append((r'\[' + self.text + r'+\]', self.markup_format))
+        self.highlighting_rules.append((r'\[.*?\]', self.markup_format))
         self.highlighting_rules.append((r'〚[^〛]+〛', self.markup_format))
         self.highlighting_rules.append((r'<[^>]+>', self.markup_format))
         self.highlighting_rules.append((r'<:.*?:>', self.markup_format))
-        self.highlighting_rules.append((r'<:.*?$', self.markup_format))
-        self.highlighting_rules.append((r'^.*?:>', self.markup_format))
         self.highlighting_rules.append((r'\{[^}]+\}', self.markup_format))
-        self.highlighting_rules.append((r'\([^()]*(\([^()]*\)[^()]*)*\)', self.markup_format))
+        self.highlighting_rules.append((r'\((?:[^()]|\([^()]*\))*\)', self.markup_format))
         self.highlighting_rules.append((r'\\[^\/]+\/', self.markup_format))
         self.highlighting_rules.append((r'~[^l]+ll', self.markup_format))
         self.highlighting_rules.append((r'~[^~]+~', self.markup_format))
@@ -46,14 +46,15 @@ class LeidenHighlighter(QSyntaxHighlighter):
         self.highlighting_rules.append((r'\|\|.*?\|\|', self.markup_format))
         self.highlighting_rules.append((r'¯[^¯]+¯', self.markup_format))
         self.highlighting_rules.append((r'_[^_]_', self.markup_format))
-        self.highlighting_rules.append((self.text + '\u0323', self.markup_format))
-        self.highlighting_rules.append((self.text + '\u0304|[ᾱᾹῑῙῡῩ]', self.markup_format))
+        # unclear
+        self.highlighting_rules.append((self.text + '\u0323', self.unclear_format))
+        self.highlighting_rules.append((self.text + '\u0304|[ᾱᾹῑῙῡῩ]', self.unclear_format))
         # special format
         self.highlighting_rules.append((r'\$.[^ ]+ ', self.special_format))
         self.highlighting_rules.append((r'#[a-zA-Z0-9][^ ]+ ', self.special_format))
         self.highlighting_rules.append((r'###', self.special_format))
         self.highlighting_rules.append((r'-\$\$-', self.special_format))
-        self.highlighting_rules.append((r'\*.+\*', self.special_format))
+        self.highlighting_rules.append((r'\*.*?\*', self.special_format))
         resp = QRegularExpression(r'=[ \-.:,()\p{L}0-9]+')
         self.highlighting_rules.append((resp, self.special_format))
         self.highlighting_rules.append((r'=[0-9]+', self.special_format))
@@ -84,8 +85,8 @@ class LeidenHighlighter(QSyntaxHighlighter):
         self.highlighting_rules.append((r'>---', self.special_format))
         # line numbers
         self.highlighting_rules.append((r'^[0-9]+\.\-?', self.line_format))
-        self.highlighting_rules.append((r'^\([0-9]+\-?.+\)', self.line_format))
-        self.highlighting_rules.append((r'^[0-9]+\-?,.+\.', self.line_format))
+        self.highlighting_rules.append((r'^\([0-9]+\-?.*?\)', self.line_format))
+        self.highlighting_rules.append((r'^[0-9]+\-?,.*?\.', self.line_format))
         # div
         self.highlighting_rules.append((r'<D=.+<=', self.div_format))
         self.highlighting_rules.append((r'=>=D>', self.div_format))

@@ -18,7 +18,7 @@ class ChangeTracker:
             f.write(content)
 
     def write_change_log(self, path, file_name, readable=False):
-        diff = self.repo.git.diff('HEAD', '--word-diff', '--unified=10000', '--', file_name)
+        diff = self.repo.git.diff('HEAD', '--word-diff=plain', '--histogram', '--unified=10000', '--', file_name)
         diff_lines = diff.split('\n')
         content = diff_lines[5:]
         write_lines = []

@@ -1,6 +1,7 @@
 from os.path import basename
+from pathlib import Path
 import pickle
-from PySide6.QtGui import QFont, QTextCursor, QAction
+from PySide6.QtGui import QFont, QTextCursor, QAction, QTextCharFormat
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QApplication
 from typing import Callable
 from core.parser import LeidenParser
@@ -45,7 +46,7 @@ class LeidenEditorWindow(QMainWindow):
         self.menubar = self.menuBar()
         self.init_ui()
         self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
-        self.action_show_changes = self.get_menu_action(self.menubar, 'Show Changes')
+        self.action_view_changes = self.get_menu_action(self.menubar, 'View Changes')
         # New File
         self.new_file()
 
@@ -108,8 +109,8 @@ class LeidenEditorWindow(QMainWindow):
         track_changes_action.setCheckable(True)
         import_change_log_action = self.add_menu_action(changes_menu, 'Import Change Log', lambda checked: self.import_change_log(checked), tooltip='Import an external change log')
         import_change_log_action.setCheckable(True)
-        show_changes_action = self.add_menu_action(changes_menu, 'Show Changes', lambda checked: self.show_changes(checked), tooltip='Shows changes, prioritizes imported change logs')
-        show_changes_action.setCheckable(True)
+        view_changes_action = self.add_menu_action(changes_menu, 'View Changes', lambda checked: self.view_changes(checked), tooltip='Shows changes, prioritizes imported change logs')
+        view_changes_action.setCheckable(True)
         self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log, tooltip='Export your changes to a file')
 
     def start_tracking(self, checked):
@@ -131,10 +132,14 @@ class LeidenEditorWindow(QMainWindow):
     def export_change_log(self):
         if self.tracker.active and self.saving_enabled:
             self.save_file(False, self.create_leiden_file())
-            path, _ = self.file_dialog.getSaveFileName(filter='*.leiden_changelog')
+            path, _ = self.file_dialog.getSaveFileName(filter='*.leiden_changelog *.txt')
             if path:
+                suffix = Path(path).suffix
                 with open(path, 'wb') as f:
-                    pickle.dump(self.tracker.parse_word_diff(basename(self.file_path)), f)
+                    if suffix == '.leiden_changelog':
+                        pickle.dump(self.tracker.parse_word_diff(basename(self.file_path)), f)
+                    else:
+                        self.tracker.write_change_log(path, basename(self.file_path))
 
     def import_change_log(self, checked):
         if checked:
@@ -147,7 +152,7 @@ class LeidenEditorWindow(QMainWindow):
         else:
             self.imported_change_log = None
 
-    def show_changes(self, checked):
+    def view_changes(self, checked):
         scrollbar = self.editor.verticalScrollBar()
         scroll_position = scrollbar.value()
         if checked:
@@ -164,8 +169,9 @@ class LeidenEditorWindow(QMainWindow):
                     diffs = self.imported_change_log
                 self.editor.show_changes(diffs)
             else:
-                self.action_show_changes.setChecked(False)
+                self.action_view_changes.setChecked(False)
         else:
+            self.editor.setCurrentCharFormat(QTextCharFormat())
             if self.file_path:
                 self.open_file(self.file_path)
                 self.editor.continue_debugging()
@@ -181,7 +187,7 @@ class LeidenEditorWindow(QMainWindow):
 
     def export_to_xml(self):
         text = self.editor.toPlainText()
-        tree = self.parser.parse_full(text, False)
+        tree = self.parser.parse_full(text)
         if tree:
             xml = self.transformer.transform(tree)
             self.save_file(True, xml, '*.xml')
@@ -219,7 +225,7 @@ class LeidenEditorWindow(QMainWindow):
         self.tracker.active = False
         self.set_checked_no_signal(self.action_track_changes, False)
         self.saving_enabled = True
-        self.set_checked_no_signal(self.action_show_changes, False)
+        self.set_checked_no_signal(self.action_view_changes, False)
         self.editor.setReadOnly(False)
 
     def new_file(self):

@@ -399,7 +399,7 @@ class LeidenTransformer(Transformer):
     def app_subst(self, children):
         add = f'<add place="inline">{children[0]}</add>'
         deletion = f'<del rend="corrected">{children[1]}</del>'
-        return f'<subst>{add}{deletion}</choice>'
+        return f'<subst>{add}{deletion}</subst>'
 
     def app_alt(self, children):
         lem = children[0]
@@ -442,7 +442,7 @@ class LeidenTransformer(Transformer):
 
     def diacritical(self, children):
         rend = str(children[0].type).lower()
-        return f'<hi rend={rend}>'
+        return f'<hi rend="{rend}">'
 
     def diacritical_element(self, children):
         item = children[0]
