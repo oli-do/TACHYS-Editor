@@ -105,7 +105,8 @@ class ChangeTracker:
     def stop_tracking(self, file_name):
         path = os.path.join(self.repo_path, file_name)
         if os.path.exists(path):
-            os.remove(path)
+            self.repo.git.rm('-r', file_name)
+            self.commit_changes(f'Stop tracking {file_name}')
             self.active = False
 
     def commit_changes(self, message="Initiate tracking"):

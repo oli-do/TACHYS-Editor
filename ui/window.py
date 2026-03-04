@@ -1,3 +1,4 @@
+import uuid
 from os.path import basename
 from pathlib import Path
 import pickle
@@ -8,8 +9,7 @@ from core.parser import LeidenParser
 from core.change_tracker import ChangeTracker
 from ui.editor import LeidenEditor
 from core.transformer import LeidenTransformer
-
-tracking_directory = 'changes'
+from shared.settings import tracking_dir, settings_mgr
 
 
 class LeidenEditorWindow(QMainWindow):
@@ -17,7 +17,7 @@ class LeidenEditorWindow(QMainWindow):
         super().__init__()
         self.parser = LeidenParser()
         self.transformer = LeidenTransformer()
-        self.tracker = ChangeTracker(tracking_directory)
+        self.tracker = ChangeTracker(tracking_dir)
         # Settings
         self.saving_enabled = True
         self.imported_change_log = None
@@ -35,20 +35,25 @@ class LeidenEditorWindow(QMainWindow):
         # Initialize Editor
         self.editor = LeidenEditor()
         self.setCentralWidget(self.editor)
+        self.editor.default_font_size = (round(0.013 * self.screen_height))
         self.editor_font = QFont('Cardo')
-        self.editor_font.setPointSize(round(0.013 * self.screen_height))
+        self.editor_font.setPointSize(self.editor.default_font_size * settings_mgr.zoom_level)
         self.editor.setFont(self.editor_font)
         self.resize(self.width, self.height)
         self.file_dialog = QFileDialog()
         self.msg = QMessageBox()
         self.file_path = ''
+        self.file_id = None
         # Menus
         self.menubar = self.menuBar()
         self.init_ui()
         self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
         self.action_view_changes = self.get_menu_action(self.menubar, 'View Changes')
         # New File
-        self.new_file()
+        if settings_mgr.last_file:
+            self.open_file(settings_mgr.last_file)
+        else:
+            self.new_file()
 
     def get_menu_action(self, parent, action_name: str):
         for action in parent.actions():
@@ -113,6 +118,9 @@ class LeidenEditorWindow(QMainWindow):
         view_changes_action.setCheckable(True)
         self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log, tooltip='Export your changes to a file')
 
+    def get_tracked_file_name(self):
+        return str(self.file_id) + '_' + basename(self.file_path)
+
     def start_tracking(self, checked):
         if checked:
             if not self.file_path:
@@ -120,12 +128,13 @@ class LeidenEditorWindow(QMainWindow):
                     self.set_checked_no_signal(self.action_track_changes, False)
                     return
             self.tracker.active = True
-            self.tracker.write_changes(basename(self.file_path), self.editor.toPlainText())
+            self.tracker.write_changes(self.get_tracked_file_name(), self.editor.toPlainText())
             self.tracker.commit_changes()
         else:
-            msg = QMessageBox.warning(self, 'Reset Change Tracking', 'Be aware that this action will fully reset your change tracking!', buttons=QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+            msg = QMessageBox.warning(self, 'Reset Change Tracking', 'Be aware that this action will fully reset your change tracking for this file!', buttons=QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
             if msg == QMessageBox.StandardButton.Ok:
-                self.tracker.active = False
+                self.tracker.stop_tracking(self.get_tracked_file_name())
+                self.set_checked_no_signal(self.action_track_changes, False)
             else:
                 self.set_checked_no_signal(self.action_track_changes, True)
 
@@ -137,7 +146,7 @@ class LeidenEditorWindow(QMainWindow):
                 suffix = Path(path).suffix
                 with open(path, 'wb') as f:
                     if suffix == '.leiden_changelog':
-                        pickle.dump(self.tracker.parse_word_diff(basename(self.file_path)), f)
+                        pickle.dump(self.tracker.parse_word_diff(self.get_tracked_file_name()), f)
                     else:
                         self.tracker.write_change_log(path, basename(self.file_path))
 
@@ -164,7 +173,7 @@ class LeidenEditorWindow(QMainWindow):
                     self.original_text = self.editor.toPlainText()
                 self.saving_enabled = False
                 if not self.imported_change_log:
-                    diffs = self.tracker.parse_word_diff(basename(self.file_path))
+                    diffs = self.tracker.parse_word_diff(self.get_tracked_file_name())
                 else:
                     diffs = self.imported_change_log
                 self.editor.show_changes(diffs)
@@ -228,12 +237,18 @@ class LeidenEditorWindow(QMainWindow):
         self.set_checked_no_signal(self.action_view_changes, False)
         self.editor.setReadOnly(False)
 
+    def set_new_file_id(self):
+        self.file_id = uuid.uuid4()
+        print('FILE ID: ', self.file_id)
+
     def new_file(self):
         self.reset()
         self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
         self.setWindowTitle(f'Leiden+ Editor - New File')
         self.set_cursor_position(3, 3)
         self.file_path = ''
+        settings_mgr.last_file = ''
+        self.set_new_file_id()
 
     def open_file(self, path=None):
         if not path:
@@ -242,33 +257,31 @@ class LeidenEditorWindow(QMainWindow):
             self.reset()
             with open(path, 'r', encoding='utf-8') as file:
                 file_content = file.read()
+            self.file_path = path
             data = file_content.split('\ue747')
             if data[0] == '0.1.0':
-                settings = data[1].split(';')
-                if len(settings) >= 1:
-                    if bool(settings[0]):
-                        if self.tracker.request_active(basename(path)):
-                            self.set_checked_no_signal(self.action_track_changes, True)
-                        else:
-                            self.set_checked_no_signal(self.action_track_changes, False)
+                file_settings = data[1].split(';')
+                if len(file_settings) >= 1:
+                    self.file_id = file_settings[0]
+                    if self.tracker.request_active(self.get_tracked_file_name()):
+                        self.set_checked_no_signal(self.action_track_changes, True)
+                    else:
+                        self.set_checked_no_signal(self.action_track_changes, False)
                 text = data[2]
             else:
-                self.tracker.request_active(basename(path))
+                self.tracker.request_active(self.get_tracked_file_name())
                 text = file_content
             self.editor.setPlainText(text)
             self.editor.start_debugging()
             self.setWindowTitle(f'Leiden+ Editor - {path}')
-            self.file_path = path
+            settings_mgr.last_file = path
 
     def create_leiden_file(self):
         splitter = '\ue747'
         # 1st line: file version
         text = '0.1.0' + splitter
         # 2nd line: settings (split by semicolon)
-        if self.tracker.active:
-            text += '1;'
-        else:
-            text += '0;'
+        text += str(self.file_id) + ';'
         # 3rd line: text
         text += splitter + self.editor.toPlainText()
         return text
@@ -290,7 +303,12 @@ class LeidenEditorWindow(QMainWindow):
                 self.file_path = path
                 self.setWindowTitle(f'Leiden+ Editor - {path}')
                 if self.tracker.active:
-                    self.tracker.write_changes(basename(self.file_path), self.editor.toPlainText())
+                    self.tracker.write_changes(self.get_tracked_file_name(), self.editor.toPlainText())
             return True
         else:
             return False
+
+    def closeEvent(self, event):
+        settings_mgr.write_settings()
+        if self.file_path.endswith('.leiden'):
+            self.save_file(False, self.create_leiden_file())

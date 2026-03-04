@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
 from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
 from core.format import PasteManager, format_numerals
 from core.debug import DebugWorker
+from shared.settings import settings_mgr
 import unicodedata
 import roman
 import re
@@ -31,6 +32,7 @@ class LeftWidget(QWidget):
 class LeidenEditor(QPlainTextEdit):
     def __init__(self):
         super().__init__()
+        self.default_font_size = self.font().pointSize()
         self.line_text = ''
         self.line_break = False
         self.do_debugging = True
@@ -143,7 +145,12 @@ class LeidenEditor(QPlainTextEdit):
             if '<=' in text:
                 current_number = 0
             if re.match(r'^\(?[0-9]+', text):
+                if 'lost.?lin' in text:
+                    continue
                 current_number += 1
+                lines_lost = re.search(r'lost\.([0-9])+lin', text)
+                if lines_lost:
+                    current_number += int(lines_lost.group(1)) - 1
         block = first_block
         top = round(self.blockBoundingGeometry(block).translated(self.contentOffset()).top())
         bottom = top + round(self.blockBoundingRect(block).height())
@@ -153,12 +160,17 @@ class LeidenEditor(QPlainTextEdit):
             if '<=' in text:
                 current_number = 0
             if is_numbered:
+                if 'lost.?lin' in text:
+                    continue
                 current_number += 1
                 if block.isVisible() and bottom >= event.rect().top():
                     draw_number = f'[{current_number}]'
                     painter.setPen(QColor("white"))
                     painter.drawText(0, top, self.left_widget.width(), self.fontMetrics().height(),
                                      Qt.AlignmentFlag.AlignCenter, draw_number)
+                lines_lost = re.search(r'lost\.([0-9])+lin', text)
+                if lines_lost:
+                    current_number += int(lines_lost.group(1)) - 1
             block = block.next()
             top = bottom
             if block.isValid():
@@ -178,9 +190,14 @@ class LeidenEditor(QPlainTextEdit):
                 self.zoomIn(1)
             else:
                 self.zoomOut(1)
+            settings_mgr.zoom_level = self.get_zoom_level()
             event.accept()
         else:
             super().wheelEvent(event)
+
+    def get_zoom_level(self):
+        current_font_size = self.font().pointSize()
+        return current_font_size / self.default_font_size
 
     def keyPressEvent(self, event):
         cursor = self.textCursor()

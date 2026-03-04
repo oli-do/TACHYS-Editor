@@ -146,7 +146,7 @@ items: item+
     | lines_untranscribed
     | characters_untranscribed
 
-?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | unclear | line | line_margin | line_rend | line_formatted
+?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | unclear | line | line_margin | line_rend | line_formatted | omitted | surplus
 
 // PRESERVATION (VACAT, VESTIGES
 vacat: "vac." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]

@@ -90,8 +90,24 @@ class LeidenParser:
                     i += 2
                 else:
                     i += 1
+        stack.clear()
+        for line_num, text in enumerate(lines, 0):
+            if not '"' in text:
+                continue
+            i = 0
+            while i < len(text):
+                if text[i:i + 1] == '"':
+                    if not stack:
+                        stack.append({'line': line_num, 'pos': i})
+                    else:
+                        opening_tag = stack.pop()
+                        pairs.append((opening_tag['line'], line_num))
+                i += 1
         pairs = sorted(pairs)
-        merged = [list(pairs[0])]
+        if pairs:
+            merged = [list(pairs[0])]
+        else:
+            return
         for current_start, current_end in pairs[1:]:
             last_start, last_end = merged[-1]
             if current_start == last_end:
