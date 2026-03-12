@@ -1,6 +1,12 @@
-from lark import Lark, exceptions
+from importlib.resources import files
 from dataclasses import dataclass
+
 import unicodedata
+from lark import Lark, exceptions
+
+
+grammar_path = str(files('tachys_editor.grammar').joinpath('leiden_plus.lark'))
+
 
 @dataclass
 class ParserError:
@@ -11,15 +17,16 @@ class ParserError:
     char: str | None
     expected: set[str] | None
 
-class LeidenParser:
+class TachysParser:
     def __init__(self):
         self.errors: list[ParserError] = []
         self.file_errors: list[ParserError] = []
         self.index: int = 0
         self.print_debug_info: bool = True
-        with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
+        with open(grammar_path, 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
         self.grammar = leiden_grammar
+        self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve', regex=True)
 
     def set_print_debug_info(self, print_debug_info: bool):
         self.print_debug_info = print_debug_info
@@ -29,7 +36,7 @@ class LeidenParser:
         if self.print_debug_info:
             print('\n### PARSE ###\n')
             print(f'TEXT\n{text}')
-        with open('leiden_plus.lark', 'r', encoding='utf-8') as file:
+        with open(grammar_path, 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
         parser = Lark(leiden_grammar, parser='earley', regex=True)
         try:
@@ -52,27 +59,27 @@ class LeidenParser:
             print(f'FILE ERRORS\n{self.file_errors}')
         return None
 
-    def validate_line_errors(self, lines):
+    def validate_line_errors(self, lines: list[str], errors: list[ParserError]):
         """
         Validate line errors by parsing with context.
 
         This function uses contextual parsing to expand single line parsing in case of apparatus tags spanning multiple
         lines. It deletes reported errors if it detects a multi line apparatus.
         :param lines: text lines
+        :param errors: list of ParserErrors
         """
-        if not self.errors:
-            return
+        if not errors:
+            return errors
         needs_validation = []
-        for error in self.errors:
+        for error in errors:
             if error.id == 0:
-                if error.char == '\n' or error.char == '<' or error.char == '>' or error.char == ':' or error.char == '|':
+                char = error.char
+                if char == '\n' or char == '<' or char == '>' or char == ':' or char == '|':
                     needs_validation.append(error.line)
             elif error.id == 2:
                 needs_validation.append(error.line)
         if not needs_validation:
-            return
-        parser = Lark(self.grammar, parser='earley', start='_leiden_lines', propagate_positions=False,
-                      maybe_placeholders=False, ambiguity='resolve', regex=True)
+            return errors
         stack = []
         pairs = []
         for line_num, text in enumerate(lines, 0):
@@ -107,7 +114,7 @@ class LeidenParser:
         if pairs:
             merged = [list(pairs[0])]
         else:
-            return
+            return errors
         for current_start, current_end in pairs[1:]:
             last_start, last_end = merged[-1]
             if current_start == last_end:
@@ -127,14 +134,14 @@ class LeidenParser:
                 if parse:
                     text = '\n'.join(lines[start:end + 1])
                     try:
-                        parser.parse('\ue747' + text)
-                        self.errors = [error for error in self.errors if not error.line in group]
+                        self.fast_parser.parse('\ue747' + text)
+                        errors = [error for error in errors if not error.line in group]
                     except (exceptions.UnexpectedCharacters, exceptions.UnexpectedToken, exceptions.UnexpectedEOF) as e:
                         try:
                             line = group[e.line - 1]
                         except IndexError:
-                            return
-                        self.errors = [error for error in self.errors if not error.line == line]
+                            return errors
+                        errors = [error for error in errors if not error.line == line]
                         if line >= 0:
                             error_name = e.__class__.__name__
                             if error_name == 'UnexpectedCharacters':
@@ -149,23 +156,24 @@ class LeidenParser:
                                 error_id = 2
                                 char = None
                                 expected = None
-                            self.errors.append(ParserError(e.__class__.__name__, error_id, line, e.column, char, expected))
+                            errors.append(ParserError(e.__class__.__name__, error_id, line, e.column, char, expected))
+        return errors
 
-    def parse_line(self, lines, line_indices):
-        parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve', regex=True)
-        for i in line_indices:
-            self.errors = [error for error in self.errors if not error.line == i]
-            line = lines[i]
-            line = unicodedata.normalize('NFC', line)
-            try:
-                parser.parse('\ue747' + line)
-            except exceptions.UnexpectedCharacters as e:
-                self.errors.append(ParserError(e.__class__.__name__, 0, i, e.column, e.char, None))
-            except exceptions.UnexpectedToken as e:
-                self.errors.append(ParserError(e.__class__.__name__, 1, i, e.column, None, e.expected))
-            except exceptions.UnexpectedEOF as e:
-                self.errors.append(ParserError(e.__class__.__name__, 2, i, e.column, None, None))
-        self.validate_line_errors(lines)
-        if self.print_debug_info:
-            print(f'ERRORS\n{self.errors}')
-        return None
+    def parse_line(self, line: str, i: int) -> ParserError | None:
+        """
+        Parse a single line.
+        :param line: Text line to parse.
+        :param i: Index of the line to parse.
+        :return: ParserError | None if no error.
+        """
+        line = unicodedata.normalize('NFC', line)
+        try:
+            self.fast_parser.parse('\ue747' + line)
+            error = None
+        except exceptions.UnexpectedCharacters as e:
+            error = ParserError(e.__class__.__name__, 0, i, e.column, e.char, None)
+        except exceptions.UnexpectedToken as e:
+            error = ParserError(e.__class__.__name__, 1, i, e.column, None, e.expected)
+        except exceptions.UnexpectedEOF as e:
+            error = ParserError(e.__class__.__name__, 2, i, e.column, None, None)
+        return error

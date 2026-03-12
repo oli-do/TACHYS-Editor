@@ -1,6 +1,8 @@
-import git
 import os
 import re
+import glob
+
+import git
 
 
 class ChangeTracker:
@@ -92,7 +94,7 @@ class ChangeTracker:
                 elif normal is not None:
                     parts.append((0, normal))
             result.append(parts)
-        return result
+        return {'diffs': result}
 
     def request_active(self, file_name):
         if os.path.exists(os.path.join(self.repo_path, file_name)):
@@ -102,13 +104,19 @@ class ChangeTracker:
             self.active = False
             return False
 
+    def reset_git(self):
+        files = glob.glob(os.path.join(self.repo_path, '*leiden')) + glob.glob(os.path.join(self.repo_path, '*txt'))
+        for file in files:
+            self.stop_tracking(os.path.basename(file))
+
     def stop_tracking(self, file_name):
         path = os.path.join(self.repo_path, file_name)
         if os.path.exists(path):
-            self.repo.git.rm('-r', file_name)
-            self.commit_changes(f'Stop tracking {file_name}')
+            self.repo.git.rm('-f', file_name)
+            self.commit_changes(message=f'Stop tracking {file_name}')
             self.active = False
 
-    def commit_changes(self, message="Initiate tracking"):
-        self.repo.git.add(A=True)
+    def commit_changes(self, file_name=None, message="Initiate tracking"):
+        if file_name:
+            self.repo.git.add(file_name)
         self.repo.index.commit(message)

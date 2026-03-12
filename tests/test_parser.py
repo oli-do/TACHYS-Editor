@@ -1,7 +1,7 @@
 import unittest
 import unicodedata
 
-from core.parser import LeidenParser
+from src.leiden_editor.core.parser import LeidenParser
 
 parser = LeidenParser()
 parser.set_print_debug_info(True)

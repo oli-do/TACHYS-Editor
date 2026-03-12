@@ -18,18 +18,6 @@ def format_numerals(text):
         hundreds = r'[ρστυφχψω\u03e1\u03e0]'
         tens = r'[ικλμνξοπ\u03DF\u03DE]'
         ones = r'[αβγδϵϛϚϝϜζηθ]'
-        if len(clean_token) == 4:
-            if not re.fullmatch(thousands + hundreds + '?' + tens + '?' + ones + '?', clean_token):
-                return text
-        elif len(clean_token) == 3:
-            if not re.fullmatch(hundreds + tens + '?' + ones + '?', clean_token):
-                return text
-        elif len(clean_token) == 2:
-            if not re.fullmatch(tens + ones + '?', clean_token):
-                return text
-        elif len(clean_token) == 1:
-            if not re.fullmatch(ones, clean_token):
-                return text
         value = 0
         skip_iteration = False
         if len(clean_token) > 1 and re.fullmatch(thousands + hundreds + tens + ones, clean_token):

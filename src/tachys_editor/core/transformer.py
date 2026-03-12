@@ -17,7 +17,7 @@ def lem_rdg(children, tag: str):
         resp = ''
     return f'<{tag}{resp}>{items}{certainty}</{tag}>'
 
-class LeidenTransformer(Transformer):
+class LeidenPlusTransformer(Transformer):
 
     # DOCUMENT START
     @v_args(inline=True)
@@ -257,7 +257,10 @@ class LeidenTransformer(Transformer):
         return inner_xml(f'<supplied reason="omitted"{cert_low}>', children[0], '</supplied>')
 
     def surplus(self, children):
-        return inner_xml('<surplus>', children[0], '</surplus>')
+        certainty_match = children[1]
+        if not certainty_match:
+            certainty_match = ''
+        return inner_xml('<surplus>', children[0], f'{certainty_match}</surplus>')
 
     def SLASHES(self, _):
         return ' rend="slashes"'

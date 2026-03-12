@@ -1,6 +1,8 @@
-from PySide6.QtWidgets import QApplication
 import sys
-from ui.window import LeidenEditorWindow
+
+from PySide6.QtWidgets import QApplication
+
+from tachys_editor.ui.window import TachysEditorWindow
 
 
 def catch_exceptions(exctype, value, traceback):
@@ -13,6 +15,6 @@ sys.excepthook = catch_exceptions
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    editor = LeidenEditorWindow()
-    editor.show()
+    window = TachysEditorWindow()
+    window.show()
     sys.exit(app.exec())

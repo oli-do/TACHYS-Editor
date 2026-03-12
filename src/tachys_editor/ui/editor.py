@@ -1,14 +1,16 @@
-from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
-from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
-from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
-from core.format import PasteManager, format_numerals
-from core.debug import DebugWorker
-from shared.settings import settings_mgr
-import unicodedata
-import roman
 import re
+
 import pyperclip
-from ui.highlighter import LeidenHighlighter
+import roman
+import unicodedata
+from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
+from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
+
+from .highlighter import TachysHighlighter
+from ..core.debug import DebugWorker
+from ..core.format import PasteManager, format_numerals
+from ..shared.settings import settings_mgr
 
 added_fmt = QTextCharFormat()
 added_fmt.setBackground(QColor("#d4fedd"))
@@ -29,7 +31,7 @@ class LeftWidget(QWidget):
     def paintEvent(self, event):
         self.codeEditor.left_widget_paint_event(event)
 
-class LeidenEditor(QPlainTextEdit):
+class TachysEditor(QPlainTextEdit):
     def __init__(self):
         super().__init__()
         self.default_font_size = self.font().pointSize()
@@ -44,14 +46,16 @@ class LeidenEditor(QPlainTextEdit):
         self.blockCountChanged.connect(self.update_left_widget_width)
         self.updateRequest.connect(self.update_left_widget_area)
         self.update_left_widget_width(0)
-        self.highlighter = LeidenHighlighter(self.document())
+        self.highlighter = TachysHighlighter(self.document())
         self.debug_worker = DebugWorker()
-        self.debug_worker.syntax_errors.connect(self.highlighter.update_error_highlighting)
+        self.debug_worker.signal_error_info.connect(self.highlighter.update_error_highlighting)
         self.debug_timer = QTimer()
         self.debug_timer.setSingleShot(True)
         self.debug_timer.timeout.connect(self.start_debugging)
+        self.debug_delay = settings_mgr.debug_delay
         self.textChanged.connect(self.on_text_change)
         self.cursorPositionChanged.connect(self.on_cursor_position_changed)
+        self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll)
         self.highlight_current_line()
 
     def show_changes(self, line_diff_list: list):
@@ -73,7 +77,13 @@ class LeidenEditor(QPlainTextEdit):
         self.setUpdatesEnabled(True)
         self.setReadOnly(True)
 
+    def on_horizontal_scroll(self):
+        if self.do_debugging:
+            self.request_debugging()
+
     def on_cursor_position_changed(self):
+        if self.do_debugging:
+            self.request_debugging()
         self.highlight_current_line()
 
     @Slot()
@@ -91,11 +101,15 @@ class LeidenEditor(QPlainTextEdit):
 
     def on_text_change(self):
         if self.do_debugging:
-            self.debug_timer.start(800)
+            if self.highlighter.do_error_highlighting:
+                return
+            self.request_debugging()
+
+    def request_debugging(self):
+        self.debug_timer.start(self.debug_delay)
 
     def start_debugging(self):
         if self.debug_worker.is_running:
-            self.debug_timer.start(800)
             return
         self.debug_worker.set_text(self.toPlainText())
         self.debug_worker.run()
@@ -103,6 +117,9 @@ class LeidenEditor(QPlainTextEdit):
     def continue_debugging(self):
         self.do_debugging = True
         self.debug_worker.enable()
+        self.highlighter.do_error_highlighting = True
+        self.highlighter.rehighlight()
+        self.highlighter.do_error_highlighting = False
         self.setReadOnly(False)
 
     def stop_debugging(self):
@@ -190,7 +207,6 @@ class LeidenEditor(QPlainTextEdit):
                 self.zoomIn(1)
             else:
                 self.zoomOut(1)
-            settings_mgr.zoom_level = self.get_zoom_level()
             event.accept()
         else:
             super().wheelEvent(event)
@@ -210,7 +226,7 @@ class LeidenEditor(QPlainTextEdit):
                     cursor.deletePreviousChar()
             except IndexError:
                 self.line_break = False
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_Period):
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_U):
             if cursor.hasSelection():
                 replacement = ''
                 for char in cursor.selectedText():
@@ -218,7 +234,7 @@ class LeidenEditor(QPlainTextEdit):
                 cursor.insertText(replacement)
             else:
                 cursor.insertText('\u0323')
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_Minus):
+        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_L):
             if cursor.hasSelection():
                 text = cursor.selectedText()
                 if len(text) > 1:
