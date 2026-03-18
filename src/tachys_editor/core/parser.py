@@ -5,7 +5,7 @@ import unicodedata
 from lark import Lark, exceptions
 
 
-grammar_path = str(files('tachys_editor.grammar').joinpath('leiden_plus.lark'))
+grammar_path = str(files('tachys_editor.resources').joinpath('leiden_plus.lark'))
 
 
 @dataclass

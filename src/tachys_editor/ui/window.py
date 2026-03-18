@@ -155,13 +155,16 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log, tooltip='Export your changes to a file')
         self.add_menu_action(changes_menu, 'Reset Git', self.reset_git, tooltip='Resets all tracked files')
         help_menu = self.menubar.addMenu('Help')
-        self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', 'https://github.com/papyri/site-docs/blob/master/leiden_plus.md'))
+        self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', documentation_path, True))
         self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('Sigla, Special Characters, Scribal Punctuation & Glyphs', 'https://github.com/papyri/site-docs/blob/master/gtypes.md'))
         self.menubar.addMenu(help_menu)
 
-    def show_in_web(self, window_name, url):
+    def show_in_web(self, window_name, url, local=False):
         self.webview.setWindowTitle(window_name)
-        self.webview.load(QUrl(url))
+        if not local:
+            self.webview.load(QUrl(url))
+        else:
+            self.webview.load(QUrl.fromLocalFile(url))
         self.webview.show()
 
     def get_tracked_file_name(self):
@@ -293,6 +296,7 @@ class TachysEditorWindow(QMainWindow):
         self.set_checked_no_signal(self.action_track_changes, False)
         self.saving_enabled = True
         self.set_checked_no_signal(self.action_view_changes, False)
+        self.editor.debug_worker.set_previous_text('')
         self.editor.setReadOnly(False)
 
     def set_new_file_id(self):
@@ -332,21 +336,21 @@ class TachysEditorWindow(QMainWindow):
             self.editor.setPlainText(text)
             self.editor.start_debugging()
             self.set_window_title(path)
-            settings_mgr.last_file = path
-            cursor = self.editor.textCursor()
-            cursor.setPosition(settings_mgr.text_cursor_pos)
-            self.editor.setTextCursor(cursor)
+            if path == settings_mgr.last_file:
+                cursor = self.editor.textCursor()
+                cursor.setPosition(settings_mgr.text_cursor_pos)
+                self.editor.setTextCursor(cursor)
             self.editor.verticalScrollBar().setValue(settings_mgr.scroll_val)
         else:
             self.new_file()
 
     def create_leiden_file(self):
         splitter = '\ue747'
-        # 1st line: file version
+        # file version
         text = '0.1.0' + splitter
-        # 2nd line: settings (split by semicolon)
+        # file config (split by semicolon: file_id)
         text += str(self.file_id) + ';'
-        # 3rd line: text
+        # text
         text += splitter + self.editor.toPlainText()
         return text
 

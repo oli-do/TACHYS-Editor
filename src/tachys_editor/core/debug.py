@@ -1,5 +1,5 @@
 from PySide6.QtCore import QObject, Signal
-from concurrent.futures import ProcessPoolExecutor, as_completed, wait, ALL_COMPLETED
+from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
 import os
 import threading
 
@@ -20,17 +20,6 @@ def debug_full(text, previous_text):
         return None
 
 
-def find_text_changes(current_line, previous_lines, index):
-    try:
-        previous_line = previous_lines[index]
-    except IndexError:
-        return index
-    if current_line != previous_line:
-        return index
-    else:
-        return None
-
-
 class DebugWorker(QObject):
     signal_error_info: Signal = Signal(list)
 
@@ -44,23 +33,29 @@ class DebugWorker(QObject):
         self.analyzer = ProcessPoolExecutor(max_workers=os.cpu_count() - 1)
         self.previous_error_info = []
         self.errors: list[ParserError] = []
+        self.lines_changed_indices: list[int] = []
 
     def run(self):
         if self.enabled and not self.is_running:
             self.is_running = True
             current_lines = self.text.splitlines()
+            len_current_lines = len(current_lines)
+            max_index_current_lines = len(current_lines) - 1
             previous_lines = self.previous_text.splitlines()
-            lines_changed_indices = []
-            futures = [self.analyzer.submit(find_text_changes, current_lines[i], previous_lines, i) for i in range(len(current_lines))]
-            for future in as_completed(futures):
-                if future.result():
-                    lines_changed_indices.append(future.result())
-            if len(current_lines) != len(previous_lines):
-                change_cause = lines_changed_indices[0] - 1
-                if change_cause > 0:
-                    lines_changed_indices.append(change_cause)
-            self.errors = [e for e in self.errors if not e.line in lines_changed_indices]
-            futures = [self.debug_executor.submit(debug, current_lines[i], i) for i in lines_changed_indices]
+            len_previous_lines = len(previous_lines)
+            if len_current_lines != len_previous_lines:
+                if self.previous_text == '':
+                    self.lines_changed_indices = range(len_current_lines)
+                else:
+                    num_lines_changed = abs(len_previous_lines - len_current_lines)
+                    start = self.lines_changed_indices[0]
+                    self.lines_changed_indices = []
+                    for i in range(start, start + num_lines_changed + 1):
+                            if i < len_current_lines:
+                                self.lines_changed_indices.append(i)
+            print('DebugWorker: check lines', self.lines_changed_indices)
+            self.errors = [e for e in self.errors if not e.line in self.lines_changed_indices and not e.line > max_index_current_lines]
+            futures = [self.debug_executor.submit(debug, current_lines[i], i) for i in self.lines_changed_indices]
             threading.Thread(target=self.monitor_futures, args=(futures,), daemon=True).start()
 
 
@@ -90,3 +85,8 @@ class DebugWorker(QObject):
     def set_text(self, text):
         self.text = text
 
+    def set_lines_changed_indices(self, lines):
+        self.lines_changed_indices = lines
+
+    def set_previous_text(self, text):
+        self.previous_text = text

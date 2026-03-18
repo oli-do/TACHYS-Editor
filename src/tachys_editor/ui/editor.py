@@ -4,7 +4,7 @@ import pyperclip
 import roman
 import unicodedata
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
-from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QShortcut, QKeySequence
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
 
 from .highlighter import TachysHighlighter
@@ -40,6 +40,8 @@ class TachysEditor(QPlainTextEdit):
         self.do_debugging = True
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.paste_mgr = PasteManager()
+        self.shortcut_paste_greek = QShortcut(QKeySequence("Ctrl+Alt+V"), self)
+        self.shortcut_paste_greek.activated.connect(self.paste_greek)
         self.original_paste_text = ''
         self.selected_text = ''
         self.left_widget = LeftWidget(self)
@@ -53,10 +55,35 @@ class TachysEditor(QPlainTextEdit):
         self.debug_timer.setSingleShot(True)
         self.debug_timer.timeout.connect(self.start_debugging)
         self.debug_delay = settings_mgr.debug_delay
-        self.textChanged.connect(self.on_text_change)
+        self.lines_changed = []
+        self.document().contentsChange.connect(self.on_contents_change)
         self.cursorPositionChanged.connect(self.on_cursor_position_changed)
-        self.horizontalScrollBar().valueChanged.connect(self.on_horizontal_scroll)
+        self.current_line_bg_highlight = 0
         self.highlight_current_line()
+
+    def paste_greek(self):
+        # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
+        cursor = self.textCursor()
+        line_text = self.get_current_line_text()
+        try:
+            line_number = re.findall(r'^\(?[0-9]+', line_text)[0]
+            line_number = int(line_number)
+        except (IndexError, ValueError):
+            line_number = None
+        self.original_paste_text = pyperclip.paste()
+        clipboard_text = pyperclip.paste()
+        clipboard_text = unicodedata.normalize('NFC', clipboard_text)
+        clipboard_text = self.paste_mgr.char_level_replacements(clipboard_text)
+        clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
+        clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
+        clipboard_text = self.paste_mgr.replace_brackets(clipboard_text)
+        if '\n' in clipboard_text and line_number:
+            newline_count = str(clipboard_text).count('\n')
+            for i in range(newline_count):
+                clipboard_text = re.sub('\n', f'§{line_number+i+1}. ', clipboard_text, 1)
+            clipboard_text = clipboard_text.replace('§', '\n')
+        pyperclip.copy(clipboard_text)
+        cursor.insertText(clipboard_text)
 
     def show_changes(self, line_diff_list: list):
         self.stop_debugging()
@@ -77,42 +104,46 @@ class TachysEditor(QPlainTextEdit):
         self.setUpdatesEnabled(True)
         self.setReadOnly(True)
 
-    def on_horizontal_scroll(self):
-        if self.do_debugging:
-            self.request_debugging()
-
     def on_cursor_position_changed(self):
+        self.highlight_current_line()
+
+    def on_contents_change(self, position, _, __):
+        block = self.document().findBlock(position)
+        line = block.blockNumber()
+        self.lines_changed.append(line)
         if self.do_debugging:
             self.request_debugging()
-        self.highlight_current_line()
 
     @Slot()
     def highlight_current_line(self):
-        extra_selections = []
-        if not self.isReadOnly():
-            selection = QTextEdit.ExtraSelection()
-            line_color = QColor('#e8f2fe')
-            selection.format.setBackground(line_color)
-            selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
-            selection.cursor = self.textCursor()
-            selection.cursor.clearSelection()
-            extra_selections.append(selection)
-        self.setExtraSelections(extra_selections)
-
-    def on_text_change(self):
-        if self.do_debugging:
-            if self.highlighter.do_error_highlighting:
-                return
-            self.request_debugging()
+        cursor = self.textCursor()
+        highlight_line = cursor.blockNumber()
+        if highlight_line != self.current_line_bg_highlight:
+            extra_selections = []
+            if not self.isReadOnly():
+                selection = QTextEdit.ExtraSelection()
+                line_color = QColor('#e8f2fe')
+                selection.format.setBackground(line_color)
+                selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
+                selection.cursor = self.textCursor()
+                selection.cursor.clearSelection()
+                extra_selections.append(selection)
+            self.setExtraSelections(extra_selections)
+            self.current_line_bg_highlight = highlight_line
 
     def request_debugging(self):
         self.debug_timer.start(self.debug_delay)
 
     def start_debugging(self):
         if self.debug_worker.is_running:
+            if self.lines_changed:
+                self.request_debugging()
             return
         self.debug_worker.set_text(self.toPlainText())
+        self.debug_worker.set_lines_changed_indices(list(set(self.lines_changed)))
+        self.lines_changed = []
         self.debug_worker.run()
+
 
     def continue_debugging(self):
         self.do_debugging = True
@@ -260,27 +291,6 @@ class TachysEditor(QPlainTextEdit):
                 self.setTextCursor(cursor)
         elif event.key() == Qt.Key.Key_BracketLeft or event.key() == Qt.Key.Key_ParenLeft or event.key() == Qt.Key.Key_BraceLeft:
             self.selected_text = cursor.selectedText()
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_V):
-            # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
-            line_text = self.get_current_line_text()
-            try:
-                line_number = re.findall(r'^\(?[0-9]+', line_text)[0]
-                line_number = int(line_number)
-            except (IndexError, ValueError):
-                line_number = None
-            self.original_paste_text = pyperclip.paste()
-            clipboard_text = pyperclip.paste()
-            clipboard_text = unicodedata.normalize('NFC', clipboard_text)
-            clipboard_text = self.paste_mgr.char_level_replacements(clipboard_text)
-            clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
-            clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
-            clipboard_text = self.paste_mgr.replace_brackets(clipboard_text)
-            if '\n' in clipboard_text and line_number:
-                newline_count = str(clipboard_text).count('\n')
-                for i in range(newline_count):
-                    clipboard_text = re.sub('\n', f'§{line_number+i+1}. ', clipboard_text, 1)
-                clipboard_text = clipboard_text.replace('§', '\n')
-            pyperclip.copy(clipboard_text)
         super().keyPressEvent(event)
 
     def keyReleaseEvent(self, event):
