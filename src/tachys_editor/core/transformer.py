@@ -29,7 +29,9 @@ class LeidenPlusTransformer(Transformer):
 
     def div(self, children):
         children = list(filter(None, children))
-        return ''.join(children)
+        div_text = ''.join(children)
+        div_text = div_text.replace('</unclear><unclear>', '')
+        return div_text
 
     def superdiv(self, children):
         children = list(filter(None, children))
@@ -38,7 +40,7 @@ class LeidenPlusTransformer(Transformer):
     @v_args(inline=True)
     def div_start(self, n, subtype, corresp):
         if corresp:
-            corresp_str = f' corresp="{corresp}"'
+            corresp_str = f' corresp="#{corresp}"'
         else:
             corresp_str = ''
         if n == 'r' or n == 'v':

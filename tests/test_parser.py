@@ -1,9 +1,9 @@
 import unittest
 import unicodedata
 
-from src.leiden_editor.core.parser import LeidenParser
+from src.tachys_editor.core.parser import TachysParser
 
-parser = LeidenParser()
+parser = TachysParser()
 parser.set_print_debug_info(True)
 div_start = '<S=.grc\n<D=.1.fragment<=\n'
 div_end = '\n=>=D>'
@@ -253,7 +253,9 @@ class TestParser(unittest.TestCase):
 
     def test_common_issues(self):
         test_list = [insert('1. .3[.4]'),
-                     insert('1. [.?]<:[ὤλεσ]ε̣ν̣|ed|.3[.0-1]η̣ν=Baplu:> ἀ̣λ̣κή·'),]
+                     insert('1. [.?]<:[ὤλεσ]ε̣ν̣|ed|.3[.0-1]η̣ν=Baplu:> ἀ̣λ̣κή·'),
+                     insert('1. β̣̄'),
+                     insert('1.  ι̣(¨)')]
         for test in test_list:
             self.assertFalse(parser_test(test))
 
