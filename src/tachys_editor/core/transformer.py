@@ -202,6 +202,7 @@ class LeidenPlusTransformer(Transformer):
 
     def supralinear_stroke(self, children):
         char = children[0]
+        underdot = children[1]
         if char.type == 'SUPRA_ALPHA_SMALL':
             char = 'α'
         elif char.type == 'SUPRA_ALPHA_CAPITAL':
@@ -214,6 +215,8 @@ class LeidenPlusTransformer(Transformer):
             char = 'υ'
         elif char.type == 'SUPRA_YPSILON_CAPITAL':
             char = 'Υ'
+        if underdot:
+            char = f'<unclear>{char}</unclear>'
         return f'<hi rend="supraline">{char}</hi>'
 
     def lines_lost(self, children):

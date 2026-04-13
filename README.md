@@ -5,6 +5,7 @@ humanly possible.
 
 ## Main Features
 - Live Debugging with error highlighting
+- Improved Leiden+ grammar with fixes for common bugs
 - Syntax Highlighting
 - Whitelist for Ancient Greek text (which proactively avoids typos produced by confusing Latin and Greek characters)
 - Keyboard shortcuts for Leiden+ syntax
@@ -27,12 +28,10 @@ humanly possible.
 
 
 ## Known Issues
-| Description                                                                                    | Priority | Workaround                  |
-|------------------------------------------------------------------------------------------------|----------|-----------------------------|
-| Rare application crash when a \<div> is automatically created                                  | high     | Write the \<div\> manually  |
-| Keyboard shortcuts may not work for all international keyboards                                | high     | None                        |
-| Syntax highlighting is not correctly applied in heavily nested apparatus tags                  | low      | None                        |              
-| A character with underdot directly followed by supralinear stroke is treated as a syntax error | low      | Use alternative syntax ¯ν̣¯ |
+| Description                                                             | Priority | Workaround                  |
+|-------------------------------------------------------------------------|----------|-----------------------------|
+| Keyboard shortcuts may not work for all operating systems               | high     | None                        |
+| Syntax highlighting is not correctly applied in heavily nested contexts | low      | None                        |
 
 
 ## Copyright & License
