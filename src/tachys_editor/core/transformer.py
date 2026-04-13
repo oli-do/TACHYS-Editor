@@ -64,6 +64,9 @@ class LeidenPlusTransformer(Transformer):
     def items(self, children):
         return children
 
+    def app_items(self, children):
+        return children
+
     @v_args(inline=True)
     def TEXT(self, text):
         return text
@@ -86,6 +89,11 @@ class LeidenPlusTransformer(Transformer):
         else:
             lb_str = ''
         xml = f'\n<lb n="{number}"{lb_str}/>'
+        return xml
+
+    @v_args(inline=True)
+    def line_break_app(self, number):
+        xml = f'<lb n="{number}" break="no"/>'
         return xml
 
     @v_args(inline=True)

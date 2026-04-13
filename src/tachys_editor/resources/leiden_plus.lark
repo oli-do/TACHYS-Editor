@@ -156,6 +156,7 @@ vestiges: "vestig." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
 
 // LINE
 line: _LINE_START NUMBER "." [LB] " "
+line_break_app: NUMBER ".- "
 line_margin: _LINE_START NUMBER LIN_MARGIN "." [LB] " "
 line_rend: _LINE_START "(" NUMBER ["." LB] ", " LIN_FORMAT ") "
 line_formatted: _LINE_START NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
@@ -204,18 +205,20 @@ handshift: "$" NAME_OR_NUMBER [CERT_LOW]
 note: "/*" NOTE_TEXT "*/"
 quotation: QMARK items QMARK
 diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
-diacritical_element: " " (GREEK_CHAR | supplied_lost | gap_lost | illegible) "(" diacritical+ ")"
+diacritical_element: " " (GREEK_CHAR | supplied_lost | gap_lost | illegible | unclear) "(" diacritical+ ")"
 ex: "(" items [CERT_LOW] ")"
 expansion: "(" ex_or_text+ ")"
 
 // APPARATUS: must be improved for the transformer; careful: sometimes CERT_LOW, ocasionally CERTAINTY_MATCH
-lem: items [CERTAINTY_MATCH] ["=" RESP]
-rdg: items [CERTAINTY_MATCH] ["=" RESP_NO_COLON]
+?app_item: item | line_break_app
+?app_items: app_item+
+lem: app_items [CERTAINTY_MATCH] ["=" RESP]
+rdg: app_items [CERTAINTY_MATCH] ["=" RESP_NO_COLON]
 app_ed: "<:" lem "|ed|" [rdg] ":>"
 app_ed_multi: "<:" lem "||ed||" rdg ("|" rdg)+ ":>"
 
-app_element_cl: items [CERT_LOW]
-app_element_cm: items [CERTAINTY_MATCH]
+app_element_cl: app_items [CERT_LOW]
+app_element_cm: app_items [CERTAINTY_MATCH]
 
 reg: items [CERT_LOW] ["=" LANG]
 app_reg: "<:" reg "|reg|" app_element_cm ":>"

@@ -81,7 +81,7 @@ class ChangeTracker:
         diff = self.repo.git.diff('HEAD', '--word-diff=plain', '--histogram', '--unified=10000', '--', file_name)
         lines = diff.splitlines()
         lines = lines[5:]
-        pattern = re.compile(r'\[-(.*?)-]|\{\+(.*?)\+}|([^{}\[\]\n]+)')
+        pattern = re.compile(r'\[-(.*?)-]|\{\+(.*?)\+}|((?:(?!\[-|\{\+)[^\n])+)')
         result = []
         for line in lines:
             parts = []
