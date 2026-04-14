@@ -59,6 +59,29 @@ class TachysParser:
             print(f'FILE ERRORS\n{self.file_errors}')
         return None
 
+    @staticmethod
+    def find_multiline_pairs(lines, opening: str, closing: str):
+        stack = []
+        pairs = []
+        len_opening = len(opening)
+        len_closing = len(closing)
+        for line_num, text in enumerate(lines, 0):
+            if not opening in text and not closing in text:
+                continue
+            i = 0
+            while i < len(text):
+                if text[i:i + len_opening] == opening:
+                    stack.append({'line': line_num, 'pos': i})
+                    i += len_opening
+                elif text[i:i + len_closing] == closing:
+                    if stack:
+                        opening_tag = stack.pop()
+                        pairs.append((opening_tag['line'], line_num))
+                    i += len_closing
+                else:
+                    i += 1
+        return pairs
+
     def validate_line_errors(self, lines: list[str], errors: list[ParserError]):
         """
         Validate line errors by parsing with context.
@@ -74,30 +97,15 @@ class TachysParser:
         for error in errors:
             if error.id == 0:
                 char = error.char
-                if char == '\n' or char == '<' or char == '>' or char == ':' or char == '|':
+                if char == '\n' or char == '<' or char == '>' or char == ':' or char == '|' or char == '(' or char == ')':
                     needs_validation.append(error.line)
             elif error.id == 2:
                 needs_validation.append(error.line)
         if not needs_validation:
             return errors
+        pairs = self.find_multiline_pairs(lines, '<:', ':>')
+        pairs += self.find_multiline_pairs(lines, '(', ')')
         stack = []
-        pairs = []
-        for line_num, text in enumerate(lines, 0):
-            if not '<:' in text and not ':>' in text:
-                continue
-            i = 0
-            while i < len(text):
-                if text[i:i + 2] == '<:':
-                    stack.append({'line': line_num, 'pos': i})
-                    i += 2
-                elif text[i:i + 2] == ':>':
-                    if stack:
-                        opening_tag = stack.pop()
-                        pairs.append((opening_tag['line'], line_num))
-                    i += 2
-                else:
-                    i += 1
-        stack.clear()
         for line_num, text in enumerate(lines, 0):
             if not '"' in text:
                 continue
