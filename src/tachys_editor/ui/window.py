@@ -209,7 +209,7 @@ class TachysEditorWindow(QMainWindow):
                     if suffixes[0] == '.leiden_changelog':
                         json.dump(self.tracker.parse_word_diff(self.get_tracked_file_name()), f)
                     else:
-                        self.tracker.write_change_log(path, basename(self.file_path))
+                        self.tracker.write_change_log(path, self.get_tracked_file_name())
 
     def import_change_log(self, checked):
         if checked:
