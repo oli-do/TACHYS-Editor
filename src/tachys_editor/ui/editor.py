@@ -5,7 +5,7 @@ import roman
 import unicodedata
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
 from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QShortcut, QKeySequence
-from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit
+from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel, QHBoxLayout
 
 from .highlighter import TachysHighlighter
 from ..core.debug import DebugWorker
@@ -31,6 +31,63 @@ class LeftWidget(QWidget):
     def paintEvent(self, event):
         self.codeEditor.left_widget_paint_event(event)
 
+
+class FindAndReplaceDialog(QDialog):
+    def __init__(self, code_editor):
+        super().__init__(code_editor)
+        self.setWindowTitle('Find and Replace')
+        self.setFixedSize(300, 150)
+        self.editor = code_editor
+        self.find_input = QLineEdit(placeholderText='Find...')
+        self.replace_input = QLineEdit(placeholderText='Replace with...')
+        self.find_button = QPushButton('Find Next')
+        self.replace_button = QPushButton('Replace')
+        self.replace_all_button = QPushButton('Replace All')
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel('Search for:'))
+        layout.addWidget(self.find_input)
+        layout.addWidget(QLabel('Replace with:'))
+        layout.addWidget(self.replace_input)
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.find_button)
+        button_layout.addWidget(self.replace_button)
+        button_layout.addWidget(self.replace_all_button)
+        layout.addLayout(button_layout)
+        self.setLayout(layout)
+        self.find_button.clicked.connect(self.find_text)
+        self.replace_button.clicked.connect(self.replace_text)
+        self.replace_all_button.clicked.connect(self.replace_all)
+
+    def find_text(self):
+        text_to_find = self.find_input.text()
+        if not text_to_find:
+            return
+        found = self.editor.find(text_to_find)
+        if not found:
+            self.editor.moveCursor(QTextCursor.MoveOperation.Start)
+            self.editor.find(text_to_find)
+
+    def replace_text(self):
+        cursor = self.editor.textCursor()
+        if cursor.hasSelection() and cursor.selectedText() == self.find_input.text():
+            cursor.insertText(self.replace_input.text())
+            self.find_text()
+
+    def replace_all(self):
+        find_text = self.find_input.text()
+        replace_text = self.replace_input.text()
+        if not find_text:
+            return
+        cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
+        self.editor.moveCursor(QTextCursor.MoveOperation.Start)
+        count = 0
+        while self.editor.find(find_text):
+            self.editor.textCursor().insertText(replace_text)
+            count += 1
+        cursor.endEditBlock()
+
+
 class TachysEditor(QPlainTextEdit):
     def __init__(self):
         super().__init__()
@@ -42,6 +99,9 @@ class TachysEditor(QPlainTextEdit):
         self.paste_mgr = PasteManager()
         self.shortcut_paste_greek = QShortcut(QKeySequence("Ctrl+Alt+V"), self)
         self.shortcut_paste_greek.activated.connect(self.paste_greek)
+        self.shortcut_find = QShortcut(QKeySequence("Ctrl+F"), self)
+        self.shortcut_find.activated.connect(self.find_and_replace)
+        self.dialog_find_and_replace = FindAndReplaceDialog(self)
         self.original_paste_text = ''
         self.selected_text = ''
         self.left_widget = LeftWidget(self)
@@ -60,6 +120,9 @@ class TachysEditor(QPlainTextEdit):
         self.cursorPositionChanged.connect(self.on_cursor_position_changed)
         self.current_line_bg_highlight = 0
         self.highlight_current_line()
+
+    def find_and_replace(self):
+        self.dialog_find_and_replace.show()
 
     def paste_greek(self):
         # run operations with clipboard text, e.g. replace lunate sigma or convert whole Leiden input to Leiden+
