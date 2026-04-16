@@ -90,6 +90,18 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(file_menu, 'Save As', lambda: self.save_file(True, self.create_leiden_file()), 'Ctrl+Alt+S')
         self.add_menu_action(file_menu, 'Export to XML', self.export_to_xml, 'Ctrl+E')
         self.add_menu_action(file_menu, 'Export to TXT', self.export_to_txt, 'Ctrl+Alt+E')
+        # Edit Menu
+        edit_menu = self.menubar.addMenu('Edit')
+        edit_menu.setToolTipsVisible(True)
+        self.add_menu_action(edit_menu, 'Undo\tCtrl+Z', self.editor.undo)
+        self.add_menu_action(edit_menu, 'Redo\tCtrl+Y', self.editor.redo)
+        QMenu.addSeparator(edit_menu)
+        self.add_menu_action(edit_menu, 'Cut\tCtrl+X', self.editor.cut)
+        self.add_menu_action(edit_menu, 'Copy\tCtrl+C', self.editor.copy)
+        self.add_menu_action(edit_menu, 'Paste\tCtrl+V', self.editor.paste)
+        self.add_menu_action(edit_menu, 'IntelliPaste\tCtrl+Alt+V', self.editor.paste_greek, tooltip='Intelligent Pasting featuring automatic conversions for Greek text')
+        QMenu.addSeparator(edit_menu)
+        self.add_menu_action(edit_menu, 'Find and Replace\tCtrl+F', self.editor.find_and_replace)
         # Insert Menu
         insert_menu = self.menubar.addMenu('Insert')
         submenu_diacriticals = QMenu('Ancient Diacriticals', self)
@@ -144,6 +156,14 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(insert_menu, 'Supralinear Stroke alt.\tCtrl+Alt+L', lambda: self.insert_str('¯'), 'Ctrl+Alt+L')
         self.add_menu_action(insert_menu, 'Handshift\tCtrl+H', lambda: self.insert_str('$m2 '),'Ctrl+H')
         self.add_menu_action(insert_menu, 'Underdot\tCtrl+U', lambda: self.insert_str('\u0323'))
+        # View Menu
+        view_menu = self.menuBar().addMenu('View')
+        submenu_zoom = QMenu('Zoom')
+        submenu_zoom.setToolTipsVisible(True)
+        self.add_menu_action(submenu_zoom, 'Zoom In', self.editor.zoomIn, 'Ctrl++', tooltip='Alternatively: Ctrl+Mousewheel Up')
+        self.add_menu_action(submenu_zoom, 'Zoom Out', self.editor.zoomOut, 'Ctrl+-', tooltip='Alternatively: Ctrl+Mousewheel Down')
+        view_menu.addMenu(submenu_zoom)
+        # Changes Menu
         changes_menu = self.menubar.addMenu('Changes')
         changes_menu.setToolTipsVisible(True)
         track_changes_action = self.add_menu_action(changes_menu, 'Track Changes', lambda checked: self.start_tracking(checked), tooltip='Sets your current Leiden+ text as a reference and tracks changes')
