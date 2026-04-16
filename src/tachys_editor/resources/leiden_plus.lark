@@ -221,7 +221,7 @@ app_ed_multi: "<:" lem "||ed||" rdg ("|" rdg)+ ":>"
 app_element_cl: app_items [CERT_LOW]
 app_element_cm: app_items [CERTAINTY_MATCH]
 
-reg: items [CERT_LOW] ["=" LANG]
+reg: app_items [CERT_LOW] ["=" LANG]
 app_reg: "<:" reg "|reg|" app_element_cm ":>"
 app_reg_multi: "<:" reg ("|" reg)+ "||reg||" app_element_cm ":>"
 

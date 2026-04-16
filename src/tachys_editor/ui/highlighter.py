@@ -87,6 +87,7 @@ class TachysHighlighter(QSyntaxHighlighter):
         self.highlighting_rules.append((r'~~~~~~~~', self.special_format))
         self.highlighting_rules.append((r'>---', self.special_format))
         # line numbers
+        self.highlighting_rules.append((r'[0-9]+\.\- ', self.line_format))
         self.highlighting_rules.append((r'^[0-9]+\.\-?', self.line_format))
         self.highlighting_rules.append((r'^\([0-9]+\-?.*?\)', self.line_format))
         self.highlighting_rules.append((r'^[0-9]+\-?,.*?\.', self.line_format))
