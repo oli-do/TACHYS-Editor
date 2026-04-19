@@ -35,6 +35,7 @@ SUBTYPE: "fragment" | "part" | "column" | "folio" | "side"
 CIRCA: "ca."
 QUANTITY: /[0-9]+/
 NUMBER: /[0-9]+/
+LINE_NUMBER: /[0-9a-z]+/
 range: NUMBER "-" NUMBER
 LIN: "lin" | "lines"
 CHAR: "char"
@@ -46,7 +47,7 @@ OR: " or "
 
 // TEXT \u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe
 TEXT: /[’͵;,·˙𐅵𐅷𐅸ϙϡ\u037e-\u03ce\u03da-\u03e4\u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+(?![\u0323\u0304])/
-GREEK_CHAR: /[𐅵𐅷𐅸ϙϡϛϚα-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϛϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
+GREEK_CHAR: /[𐅵𐅷𐅸ϙϡϛϚα-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
 NON_DEF_TEXT: /.[^|]+/
 NOTE_TEXT: /.[^*]+/
 NAME: /[a-zA-Z]+/
@@ -156,11 +157,11 @@ illegible: (CIRCA | DOT) (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
 vestiges: "vestig." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
 
 // LINE
-line: _LINE_START NUMBER "." [LB] " "
-line_break_app: NUMBER ".- "
-line_margin: _LINE_START NUMBER LIN_MARGIN "." [LB] " "
-line_rend: _LINE_START "(" NUMBER ["." LB] ", " LIN_FORMAT ") "
-line_formatted: _LINE_START NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
+line: _LINE_START LINE_NUMBER "." [LB] " "
+line_break_app: LINE_NUMBER ".- "
+line_margin: _LINE_START LINE_NUMBER LIN_MARGIN "." [LB] " "
+line_rend: _LINE_START "(" LINE_NUMBER ["." LB] ", " LIN_FORMAT ") "
+line_formatted: _LINE_START LINE_NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
 
 // ADD
 add_above: "\\" items [CERT_LOW] "/"
