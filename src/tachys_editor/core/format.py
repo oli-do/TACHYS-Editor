@@ -46,7 +46,7 @@ def format_numerals(text):
 class PasteManager:
     def __init__(self):
         self.underdot = '[\u0323\ue5ce]'
-        self.supralinear_stroke = '[\ue6b7\ue790]'
+        self.supralinear_stroke = '[\ue6b7\ue790\u0305]'
 
     @staticmethod
     def char_level_replacements(text):
@@ -119,3 +119,35 @@ class PasteManager:
                 new_bracket = bracket.replace('σa', 'ca.').replace('σ.', 'ca.').replace(' ', '')
                 text = text.replace(bracket, new_bracket)
         return text
+
+    @staticmethod
+    def delete_edition_line_numbers(text: str):
+        results = []
+        for line in text.splitlines():
+            print(line)
+            line = line.strip()
+            line = re.sub(r'^[0-9]+[a-z]*[\t ]*', '', line)
+            line = re.sub(r'[0-9]+[a-z]*[\t ]*$', '', line)
+            line = line.strip()
+            results.append(line)
+        return '\n'.join(results)
+
+    @staticmethod
+    def multiline(text: str, line_number: int):
+        if '\n' in text and line_number:
+            results = []
+            lines = text.splitlines()
+            line_break = ''
+            for i in range(len(lines)):
+                lines_i = lines[i]
+                if i > 0:
+                    lines_i = f'{line_number+i}.{line_break} ' + lines_i
+                if lines_i.endswith('-'):
+                    line_break = '-'
+                    lines_i = lines_i[:-1]
+                else:
+                    line_break = ''
+                results.append(lines_i)
+            return '\n'.join(results)
+        else:
+            return text
