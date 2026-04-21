@@ -87,6 +87,7 @@ GRAVE: "`" | "&G"
 
 items: item+
 ?item: line
+    | line_double
     | line_formatted
     | line_margin
     | line_rend
@@ -158,6 +159,7 @@ vestiges: "vestig." [CIRCA] (range | QUANTITY | EXTENT_UNKNOWN) [LIN]
 
 // LINE
 line: _LINE_START LINE_NUMBER "." [LB] " "
+line_double: _LINE_START LINE_NUMBER "/" LINE_NUMBER "." [LB] " "
 line_break_app: LINE_NUMBER ".- "
 line_margin: _LINE_START LINE_NUMBER LIN_MARGIN "." [LB] " "
 line_rend: _LINE_START "(" LINE_NUMBER ["." LB] ", " LIN_FORMAT ") "
@@ -181,8 +183,8 @@ supraline: "¯" items "¯"
 supraline_underline: "¯_" items "_¯"
 
 // NUMBERS, SYMBOLS AND SPECIAL CHARACTERS
-ancient_number: "<#" items [REND_TICK] "=" [NUMBER | FRACTION] "#>"
-ancient_number_no_text: "<#=" (NUMBER | FRACTION) "#>"
+ancient_number: "<#" items [REND_TICK] "=" [NUMBER | FRACTION | NUMBER SPACE FRACTION] "#>"
+ancient_number_no_text: "<#=" (NUMBER | FRACTION | NUMBER SPACE FRACTION) "#>"
 symbol: "*" NAME_HYPHEN ["(" REND ")"] [CERT_LOW] "*"
 drawing: "#" NAME_HYPHEN " "
 box: "###"
@@ -203,7 +205,7 @@ parallel: "|_" items [CERT_LOW] "_|"
 parallel_lost: "_[" items [CERT_LOW] "]_"
 ?unclear_char: GREEK_CHAR "\u0323"
 unclear: unclear_char+
-handshift: "$" NAME_OR_NUMBER [CERT_LOW]
+handshift: "$" NAME_OR_NUMBER [CERT_LOW] " "
 note: "/*" NOTE_TEXT "*/"
 quotation: QMARK items QMARK
 diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE

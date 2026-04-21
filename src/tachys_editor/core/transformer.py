@@ -94,6 +94,15 @@ class LeidenPlusTransformer(Transformer):
         return xml
 
     @v_args(inline=True)
+    def line_double(self, number, number2, lb):
+        if lb:
+            lb_str = f' break="no"'
+        else:
+            lb_str = ''
+        xml = f'\n<lb n="{number}/{number2}"{lb_str}/>'
+        return xml
+
+    @v_args(inline=True)
     def line_break_app(self, number):
         xml = f'<lb n="{number}" break="no"/>'
         return xml
