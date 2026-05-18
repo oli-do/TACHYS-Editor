@@ -4,34 +4,62 @@ to the EpiDoc standard. It provides helpful functions to make encoding as simple
 humanly possible.
 
 ## Main Features
-- Live Debugging with error highlighting
-- Improved Leiden+ grammar with fixes for common bugs
-- Syntax Highlighting
-- Whitelist for Ancient Greek text (which proactively avoids typos produced by confusing Latin and Greek characters)
-- Keyboard shortcuts for Leiden+ syntax
-- Automatic line numbering
-- Automatic \<div> numbering
-- Automatic numeral conversion (according to the Byzantine system)
-- Automatic lunate sigma conversion
-- Change tracking for peer review (view changes, export changes, import changes)
-- XML export
+- **Live Debugging** with error highlighting
+- **Extended Leiden+ grammar** for features yet unsupported by the Papyrological Editor
+- **Improved Leiden+ grammar** with fixes for common issues
+- **Syntax Highlighting** for increased readability
+- **Whitelist for Ancient Greek text** (which proactively avoids typos produced by confusing Latin and Greek characters)
+- **Keyboard shortcuts** for frequently used Leiden+ expressions
+- **Automatic line numbering**
+- **Automatic \<div> numbering**
+- **Automatic numeral conversion** (according to the Byzantine system)
+- **IntelliPaste** featuring automatic lunate sigma conversion and much more when text is pasted
+- **Change tracking** for peer review (view changes, export changes, import changes)
+- **XML export**
+
+## Extended Leiden+ Grammar
+| Name      | Description                       | Leiden+ | XML                             |
+|-----------|-----------------------------------|---------|---------------------------------|
+| Underline | Indicates text that is underlined | \_αβγ_  | \<hi rend="underline">αβγ\</hi> |
 
 ## Quick Guide
-### Tips for encoding faster
-- Use shortcuts on marked text (e.g. Ctrl + 0 will instantly apply numeral markup)
+### Setup
+**Linux only:**
+- Install xclip (sudo apt-get install xclip) if not pre-installed by your distribution (TACHYS accesses the clipboard via [pyperclip](https://pypi.org/project/pyperclip/) for IntelliPaste functionality)
+
+**Windows, Linux and MacOS:**
+- Install [git](https://git-scm.com/) (TACHYS uses [GitPython](https://pypi.org/project/GitPython/0.3.2/) for change tracking)
+- Download and run a pre-built executable from "Releases" <u><b>or</b></u> Download and run the source code (main.py) after installing the requirements listed in requirements.txt
+
+### Fast Encoding with TACHYS
+- Use shortcuts on marked text (e.g. Ctrl+0 will instantly apply numeral markup)
+- Use **IntelliPaste** (Ctrl+Alt+V)
+
+### Local Files
+TACHYS writes the following data to the *user_data_directory* of your file system:
+- A config file "config.json" which contains the path to the last edited file and further configuration data such as the current zoom level set in the editor window
+- A directory for git called "changes" where file changes are tracked if enabled
+
+The OS-specific *user_data_directory* (cf. [appdirs](https://pypi.org/project/appdirs/)):
+- **Windows**: C:\Users\username\AppData\Local\Oliver Donath\TACHYS Editor
+- **Linux**: /home/username/.local/share/TACHYS Editor
+- **MacOS**: /Users/username/Library/Application Support/TACHYS Editor
+
+
 
 ## Planned Features
 (*Ranked from higher to lower priority*)
+- AI integration
 - Change all line numbers within a \<div>
 - Tag system for references similar to abbreviations used in papyrological editions (e.g. Pr for Preisendanz)
 - Support for encoding Latin texts
 
 
 ## Known Issues
-| Description                                                             | Priority | Workaround                  |
-|-------------------------------------------------------------------------|----------|-----------------------------|
-| Keyboard shortcuts may not work for all operating systems               | high     | None                        |
-| Syntax highlighting is not correctly applied in heavily nested contexts | low      | None                        |
+| Description                                                                          | Priority | Workaround                  |
+|--------------------------------------------------------------------------------------|----------|-----------------------------|
+| Some keyboard shortcuts may not work on all operating systems                        | high     | None                        |
+| Syntax highlighting is not correctly applied in heavily nested or multiline contexts | low      | None                        |
 
 
 ## Copyright & License

@@ -208,6 +208,9 @@ class LeidenPlusTransformer(Transformer):
     def supraline(self, children):
         return inner_xml('<hi rend="supraline">', children[0], '</hi>')
 
+    def underline(self, children):
+        return inner_xml('<hi rend="underline">', children[0], '</hi>')
+
     def supraline_underline(self, children):
         return inner_xml('<hi rend="supraline-underline">', children[0], '</hi>')
 

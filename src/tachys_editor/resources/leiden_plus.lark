@@ -104,6 +104,7 @@ items: item+
     | superscripted
     | subscripted
     | supraline
+    | underline
     | supraline_underline
     | supralinear_stroke
     | lines_lost
@@ -180,6 +181,7 @@ superscripted: "|^" items "^|"
 subscripted: "\\|" items "|/"
 supralinear_stroke: (GREEK_CHAR [UNDERDOT] "\u0304" | supra_escape [UNDERDOT])+
 supraline: "¯" items "¯"
+underline: "_" items "_"
 supraline_underline: "¯_" items "_¯"
 
 // NUMBERS, SYMBOLS AND SPECIAL CHARACTERS

@@ -140,6 +140,7 @@ class TachysEditor(QPlainTextEdit):
         clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
         clipboard_text = self.paste_mgr.replace_supralinear_stroke(clipboard_text)
         clipboard_text = self.paste_mgr.replace_brackets(clipboard_text)
+        clipboard_text = self.paste_mgr.replace_supplied_omitted(clipboard_text)
         clipboard_text = self.paste_mgr.delete_edition_line_numbers(clipboard_text)
         clipboard_text = self.paste_mgr.multiline(clipboard_text, line_number)
         pyperclip.copy(clipboard_text)

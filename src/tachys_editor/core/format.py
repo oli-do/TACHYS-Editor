@@ -121,6 +121,10 @@ class PasteManager:
         return text
 
     @staticmethod
+    def replace_supplied_omitted(text):
+        return text.replace('⟨', '<').replace('⟩', '>')
+
+    @staticmethod
     def delete_edition_line_numbers(text: str):
         results = []
         for line in text.splitlines():
