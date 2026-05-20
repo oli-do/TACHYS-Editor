@@ -115,6 +115,7 @@ items: item+
     | omitted
     | surplus
     | deletion
+    | deletion_corr
     | abbreviation
     | gap_lost
     | supplied_lost
@@ -200,6 +201,7 @@ coronis: _LINE_START "-$$-"
 omitted: "<" items [CERT_LOW] ">"
 surplus: "{" items [CERTAINTY_MATCH] "}"
 deletion: "〚" [SLASHES | CROSS_STROKES] items "〛"
+deletion_corr: "[[" items "]]"
 abbreviation: "(|" items [CERTAINTY_MATCH] "|)"
 supplied_lost: "[" items [CERT_LOW] "]"
 gap_lost: "[" (CIRCA | DOT) (range | QUANTITY | EXTENT_UNKNOWN) "]" [OR gap_lost]

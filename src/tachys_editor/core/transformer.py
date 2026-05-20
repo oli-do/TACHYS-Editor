@@ -299,6 +299,9 @@ class LeidenPlusTransformer(Transformer):
             rend = ' rend="erasure"'
         return inner_xml(f'<del{rend}>', children[1], '</del>')
 
+    def deletion_corr(self, children):
+        return inner_xml('<del rend="corrected">', children[0], '</del>')
+
     def abbreviation(self, children):
         certainty_match = children[1]
         if not certainty_match:
