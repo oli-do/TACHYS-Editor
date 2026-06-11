@@ -86,18 +86,19 @@ class TachysParser:
         """
         Validate line errors by parsing with context.
 
-        This function uses contextual parsing to expand single line parsing in case of apparatus tags spanning multiple
-        lines. It deletes reported errors if it detects a multi line apparatus.
+        This function uses contextual parsing to expand single line parsing in case of tags spanning multiple lines.
+        It deletes reported errors if it detects a multi line tag.
         :param lines: text lines
         :param errors: list of ParserErrors
         """
         if not errors:
             return errors
         needs_validation = []
+        validate = ['\n', '<', '>', ':', '|', '(', ')']
         for error in errors:
             if error.id == 0:
                 char = error.char
-                if char == '\n' or char == '<' or char == '>' or char == ':' or char == '|' or char == '(' or char == ')':
+                if char in validate:
                     needs_validation.append(error.line)
             elif error.id == 2:
                 needs_validation.append(error.line)

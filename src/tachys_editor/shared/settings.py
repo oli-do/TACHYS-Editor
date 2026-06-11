@@ -1,6 +1,7 @@
 import json
 import os
 from dataclasses import dataclass, asdict
+from tkinter import Tk, font
 
 from appdirs import user_data_dir
 
@@ -9,6 +10,9 @@ app_author = 'Oliver Donath'
 data_dir = user_data_dir(appname=app_name, appauthor=app_author)
 tracking_dir = os.path.join(data_dir, 'changes')
 config_file_path = os.path.join(data_dir, 'config.json')
+root = Tk()
+root.withdraw()
+font_families = font.families()
 
 
 @dataclass
@@ -18,6 +22,20 @@ class SettingsManager:
     debug_delay: int = 250
     scroll_val: int = 0
     text_cursor_pos: int = 0
+    if 'IFAO-Grec Unicode' in font_families:
+        font: str = 'IFAO-Grec Unicode'
+    elif 'Brill' in font_families:
+        font: str = 'Brill'
+    elif 'Cardo' in font_families:
+        font: str = 'Cardo'
+    elif 'Segoe UI' in font_families:
+        font: str = 'Segoe UI'
+    elif 'Noto Sans' in font_families:
+        font: str = 'Noto Sans'
+    elif 'Noto Serif' in font_families:
+        font: str = 'Noto Serif'
+    else:
+        font: str = ''
 
     def read_settings(self):
         with open(config_file_path, 'r') as f:
@@ -28,6 +46,7 @@ class SettingsManager:
             self.debug_delay = settings_dict['debug_delay']
             self.scroll_val = settings_dict['scroll_val']
             self.text_cursor_pos = settings_dict['text_cursor_pos']
+            self.font = settings_dict['font']
         except KeyError:
             pass
 

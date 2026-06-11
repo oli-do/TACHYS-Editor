@@ -47,7 +47,7 @@ class TachysEditorWindow(QMainWindow):
         self.editor = TachysEditor()
         self.setCentralWidget(self.editor)
         self.editor.default_font_size = (round(0.013 * self.screen_height))
-        self.editor_font = QFont('Cardo')
+        self.editor_font = QFont(settings_mgr.font)
         self.editor_font.setPointSize(self.editor.default_font_size * settings_mgr.zoom_level)
         self.editor.setFont(self.editor_font)
         self.resize(self.width, self.height)
