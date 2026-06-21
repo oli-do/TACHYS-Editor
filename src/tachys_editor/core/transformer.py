@@ -94,6 +94,15 @@ class LeidenPlusTransformer(Transformer):
         return xml
 
     @v_args(inline=True)
+    def line_double(self, number, number2, lb):
+        if lb:
+            lb_str = f' break="no"'
+        else:
+            lb_str = ''
+        xml = f'\n<lb n="{number}/{number2}"{lb_str}/>'
+        return xml
+
+    @v_args(inline=True)
     def line_break_app(self, number):
         xml = f'<lb n="{number}" break="no"/>'
         return xml
@@ -199,6 +208,9 @@ class LeidenPlusTransformer(Transformer):
     def supraline(self, children):
         return inner_xml('<hi rend="supraline">', children[0], '</hi>')
 
+    def underline(self, children):
+        return inner_xml('<hi rend="underline">', children[0], '</hi>')
+
     def supraline_underline(self, children):
         return inner_xml('<hi rend="supraline-underline">', children[0], '</hi>')
 
@@ -286,6 +298,9 @@ class LeidenPlusTransformer(Transformer):
         if not rend:
             rend = ' rend="erasure"'
         return inner_xml(f'<del{rend}>', children[1], '</del>')
+
+    def deletion_corr(self, children):
+        return inner_xml('<del rend="corrected">', children[0], '</del>')
 
     def abbreviation(self, children):
         certainty_match = children[1]

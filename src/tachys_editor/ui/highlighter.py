@@ -89,6 +89,7 @@ class TachysHighlighter(QSyntaxHighlighter):
         # line numbers
         self.highlighting_rules.append((r'[0-9a-z]+\.\- ', self.line_format))
         self.highlighting_rules.append((r'^[0-9a-z]+\.\-?', self.line_format))
+        self.highlighting_rules.append((r'^[0-9a-z]+/[0-9a-z]+\.\-?', self.line_format))
         self.highlighting_rules.append((r'^\([0-9a-z]+\-?.*?\)', self.line_format))
         self.highlighting_rules.append((r'^[0-9a-z]+\-?,.*?\.', self.line_format))
         # div
