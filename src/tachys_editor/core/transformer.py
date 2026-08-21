@@ -1,3 +1,5 @@
+from bs4 import BeautifulSoup
+from bs4.element import Tag, NavigableString
 from lark import Transformer, v_args
 
 def inner_xml(start: str, children: list[str], end: str):
@@ -509,6 +511,245 @@ class LeidenPlusTransformer(Transformer):
         if not precision_low:
             precision_low = ''
         return f'<gap reason="ellipsis"{quantity_extent} unit="character"{precision_low}><desc>non transcribed</desc></gap>'
+
+
+class EpiDocTransformer:
+    def __init__(self):
+        self.text = ''
+
+    def transform(self, path: str):
+        soup = BeautifulSoup(open(path, 'r', encoding='utf-8'), 'lxml-xml')
+        text_parts = soup.find_all('ab')
+        for ab in text_parts:
+            line = ab.find('lb')
+            self.text += self.transform_node(line)
+            sibling = line.next_sibling
+            while sibling:
+                if sibling is None:
+                    break
+                elif str(sibling).strip() == '':
+                    sibling = sibling.next_sibling
+                    continue
+                if isinstance(sibling, NavigableString):
+                    self.text += str(sibling)
+                else:
+                    self.text += self.transform_node(sibling)
+                sibling = sibling.next_sibling
+        print(self.text)
+
+    def convert(self, node: Tag) -> str:
+        result = []
+        for content in node.contents:
+            if isinstance(content, Tag):
+                result.append(self.transform_node(content))
+            elif isinstance(content, NavigableString):
+                result.append(str(content))
+        return "".join(result)
+
+
+    def transform_node(self, node: Tag):
+        print('transform_node', node, node.contents)
+        contents = node.contents
+        name = node.name
+        start, end = f'<{node.name}>', f'</{node.name}>'
+        if hasattr(self, name):
+            if name == 'del':
+                name = 'deletion'
+            function = getattr(self, name)
+            start, end = function(node)
+        if contents:
+            return f'{start}{self.convert(node)}{end}'
+        else:
+            return f'{start}{end}'
+
+    @staticmethod
+    def lb(node: Tag):
+        lb_n = node.attrs['n']
+        if 'break' in node.attrs:
+            lb_break = '-'
+        else:
+            lb_break = ''
+        if not 'rend' in node.attrs:
+            return f'\n{lb_n}.{lb_break} ', ''
+        else:
+            rend = node.attrs['rend']
+            if lb_break:
+                lb_break = '.-'
+            return f'({lb_n}{lb_break}, {rend}) ', ''
+
+    @staticmethod
+    def handShift(node: Tag):
+        new = node.attrs['new']
+        return f'${new} ', ''
+
+    @staticmethod
+    def unclear(node: Tag):
+        return '', '\u0323'
+
+    @staticmethod
+    def space(node: Tag):
+        unit = node.attrs['unit']
+        if unit == 'character':
+            unit = ''
+        if 'precision' in node.attrs:
+            precision_low = 'ca.'
+        else:
+            precision_low = ''
+        if 'atLeast' in node.attrs:
+            at_least = node.attrs['atLeast']
+            at_most = node.attrs['atMost']
+            return f'vac.{at_least}-{at_most}{unit}', ''
+        elif 'extent' in node.attrs:
+            return f'vac.?{unit}', ''
+        else:
+            quantity = node.attrs['quantity']
+            return f'vac.{precision_low}{quantity}{unit}', ''
+
+    @staticmethod
+    def add(node: Tag):
+        place = node.attrs['place']
+        if 'cert' in node.attrs:
+            cert_low = '?'
+        else:
+            cert_low = ''
+        if place == 'above':
+            return '\\', f'{cert_low}/'
+        elif place == 'below':
+            return '//', f'{cert_low}\\\\'
+        elif place == 'left':
+            return '||left:', f'{cert_low}||'
+        elif place == 'right':
+            return '||right:', f'{cert_low}||'
+        elif place == 'interlinear':
+            return '||interlin:', f'{cert_low}||'
+        elif place == 'margin':
+            rend = node.attrs['rend']
+            if rend == 'sling':
+                return '<|', f'{cert_low}|>'
+            elif rend == 'underline':
+                return '<_', f'{cert_low}_>'
+        else:
+            print(f'ERROR <add>: unknown @place {place}')
+            return '', ''
+
+    @staticmethod
+    def milestone(node: Tag):
+        rend = node.attrs['rend']
+        if rend == 'box':
+            return '### ', ''
+        else:
+            print(f'ERROR <milestone>: unknown @rend {rend}')
+            return '', ''
+
+    @staticmethod
+    def hi(node: Tag):
+        rend = node.attrs['rend']
+        if rend == 'tall':
+            return '~||', '||~tall'
+        elif rend == 'superscript':
+            return '|^', '^|'
+        elif rend == 'subscript':
+            return '\\|', '|/'
+        elif rend == 'supraline':
+            return '¯', '¯'
+        elif rend == 'supraline-underline':
+            return '¯_', '_¯'
+        elif rend == 'underline':
+            return '_', '_'
+        else:
+            print(f'ERROR <hi>: unknown @rend {rend}')
+            return '', ''
+
+    @staticmethod
+    def gap(node: Tag):
+        unit = node.attrs['unit']
+        gap_start = ''
+        gap_end = ''
+        for child in node.children:
+            if isinstance(child, Tag):
+                if child.name == 'desc' and child.get_text() == 'vestiges':
+                    gap_start = 'vestig'
+                    node.clear()
+        if unit == 'character':
+            unit = ''
+        reason = node.attrs['reason']
+        if reason == 'lost':
+            gap_start = '['
+            gap_end = ']'
+        if 'precision' in node.attrs:
+            precision_low = 'ca.'
+        else:
+            precision_low = ''
+        if 'atLeast' in node.attrs:
+            at_least = node.attrs['atLeast']
+            at_most = node.attrs['atMost']
+            return f'{gap_start}.{at_least}-{at_most}{unit}{gap_end}', ''
+        elif 'extent' in node.attrs:
+            return f'{gap_start}.?{unit}{gap_end}', ''
+        elif 'quantity' in node.attrs:
+            quantity = node.attrs['quantity']
+            return f'{gap_start}.{precision_low}{quantity}{unit}{gap_end}', ''
+        else:
+            return '[', ']'
+
+    @staticmethod
+    def certainty(node: Tag):
+        return '(?)', ''
+
+    @staticmethod
+    def supplied(node: Tag):
+        reason = node.attrs['reason']
+        if 'cert' in node.attrs:
+            cert_low = '(?)'
+        else:
+            cert_low = ''
+        if reason == 'omitted':
+            return '<', f'{cert_low}>'
+        else:
+            print(f'ERROR <supplied>: unknown @reason {reason}')
+            return '', ''
+
+    @staticmethod
+    def surplus(node: Tag):
+        return '{', '}'
+
+    @staticmethod
+    def deletion(node: Tag):
+        rend = node.attrs['rend']
+        if rend == 'erasure':
+            return '〚', '〛'
+        elif rend == 'slashes':
+            return '〚/ ', '〛'
+        elif rend == 'cross-strokes':
+            return '〚X ', '〛'
+        elif rend == 'corrected':
+            return '[[', ']]'
+        else:
+            print(f'ERROR <deletion>: unknown @rend {rend}')
+            return '', ''
+
+    @staticmethod
+    def expan(node: Tag):
+        return '(', ')'
+
+    @staticmethod
+    def ex(node: Tag):
+        if 'cert' in node.attrs:
+            cert_low = '?'
+        else:
+            cert_low = ''
+        return '(', f'{cert_low})'
+
+    @staticmethod
+    def abbr(node: Tag):
+        'https://papyri.info/docs/leiden_plus#leiden-parentheses--'
+
+
+
+
+if __name__ == '__main__':
+    transformer = EpiDocTransformer()
+    transformer.transform('C:/Users/Oliver/Desktop/GEMF 34.xml')
 
 
 
