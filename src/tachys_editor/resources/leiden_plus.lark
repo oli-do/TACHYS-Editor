@@ -78,7 +78,7 @@ QMARK: /"/
 UNDERDOT: "\u0323"
 
 // DIACRITICALS
-DIARESIS: "¨" | "&D"
+DIAERESIS: "¨" | "&D"
 ASPER: " ῾" | "&AS"
 ACUTE: "´" | "&AC"
 CIRCUMFLEX: "^" | "&C"
@@ -212,7 +212,7 @@ unclear: unclear_char+
 handshift: "$" NAME_OR_NUMBER [CERT_LOW] " "
 note: "/*" NOTE_TEXT "*/"
 quotation: QMARK items QMARK
-diacritical: DIARESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
+diacritical: DIAERESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
 diacritical_element: " " (GREEK_CHAR | supplied_lost | gap_lost | illegible | unclear) "(" diacritical+ ")"
 ex: "(" items [CERT_LOW] ")"
 expansion: "(" ex_or_text+ ")"

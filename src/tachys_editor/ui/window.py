@@ -13,7 +13,7 @@ from PySide6.QtWebEngineWidgets import QWebEngineView
 from .editor import TachysEditor
 from ..core.change_tracker import ChangeTracker
 from ..core.parser import TachysParser
-from ..core.transformer import LeidenPlusTransformer
+from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
 from ..core.ai import AIManager
 from ..shared.settings import tracking_dir, settings_mgr, app_name
 
@@ -26,13 +26,16 @@ class TachysEditorWindow(QMainWindow):
         super().__init__()
         self.webview = QWebEngineView()
         self.parser = TachysParser()
-        self.transformer = LeidenPlusTransformer()
+        self.lp_transformer = LeidenPlusTransformer()
+        self.ed_transformer = EpiDocTransformer()
+        self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
         # Settings
         self.saving_enabled = True
         self.imported_change_log = None
         self.original_text = ''
+        self.xml_origin = ''
         # Initialize Window
         screen = QApplication.primaryScreen()
         size = screen.size()
@@ -348,7 +351,11 @@ class TachysEditorWindow(QMainWindow):
         text = self.editor.toPlainText()
         tree = self.parser.parse_full(text)
         if tree:
-            xml = self.transformer.transform(tree)
+            inner_body = self.lp_transformer.transform(tree)
+            if self.xml_origin:
+                xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
+            else:
+                xml = self.tei_builder.build_raw(inner_body)
             self.save_file(True, xml, '*.xml')
         else:
             self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
@@ -389,6 +396,7 @@ class TachysEditorWindow(QMainWindow):
         self.editor.setTextCursor(cursor)
 
     def reset(self):
+        self.editor.stop_debugging()
         self.editor.clear()
         self.tracker.active = False
         self.set_checked_no_signal(self.action_track_changes, False)
@@ -396,6 +404,7 @@ class TachysEditorWindow(QMainWindow):
         self.set_checked_no_signal(self.action_view_changes, False)
         self.editor.debug_worker.set_previous_text('')
         self.editor.setReadOnly(False)
+        self.editor.continue_debugging()
 
     def set_new_file_id(self):
         self.file_id = uuid.uuid4()
@@ -412,25 +421,56 @@ class TachysEditorWindow(QMainWindow):
 
     def open_file(self, path=None):
         if not path:
-            path, _ = self.file_dialog.getOpenFileName(filter='*.leiden *.txt')
+            path, _ = self.file_dialog.getOpenFileName(filter='*.leiden *.xml')
         if os.path.exists(path):
+            file_suffix = Path(path).suffix
             self.reset()
             with open(path, 'r', encoding='utf-8') as file:
                 file_content = file.read()
             self.file_path = path
-            data = file_content.split('\ue747')
-            if data[0] == '0.1.0':
-                file_settings = data[1].split(';')
-                if len(file_settings) >= 1:
-                    self.file_id = file_settings[0]
+            if file_suffix == '.leiden':
+                self.xml_origin = ''
+                data = file_content.split('\ue747')
+                if data[0] == '0.1.0':
+                    file_settings = data[1].split(';')
+                    if len(file_settings) >= 1:
+                        self.file_id = file_settings[0]
+                        if self.tracker.request_active(self.get_tracked_file_name()):
+                            self.set_checked_no_signal(self.action_track_changes, True)
+                        else:
+                            self.set_checked_no_signal(self.action_track_changes, False)
+                    text = data[2]
+                elif data[0] == file_content:
+                    json_content = json.loads(file_content)
+                    self.file_id = json_content['id']
+                    self.xml_origin = json_content['xml_origin']
                     if self.tracker.request_active(self.get_tracked_file_name()):
                         self.set_checked_no_signal(self.action_track_changes, True)
                     else:
                         self.set_checked_no_signal(self.action_track_changes, False)
-                text = data[2]
+                    text = json_content['text']
+                else:
+                    self.tracker.request_active(self.get_tracked_file_name())
+                    text = file_content
             else:
-                self.tracker.request_active(self.get_tracked_file_name())
-                text = file_content
+                text = self.ed_transformer.transform(path)
+                msg = QMessageBox()
+                if not text:
+                    print('CONVERSION ERROR')
+                    msg.setWindowTitle('CONVERSION ERROR')
+                    msg.setText(f'XML Conversion to Leiden+ failed due to one or more XML errors. Please click "Show '
+                                f'Details..." for more information.')
+                    msg.setDetailedText('\n'.join(self.ed_transformer.errors))
+                    msg.exec()
+                    return self.new_file()
+                elif text and self.ed_transformer.errors:
+                    msg.setWindowTitle('UNSUPPORTED SYNTAX ERROR')
+                    msg.setText(f'XML Conversion to Leiden+ incomplete due to unsupported syntax. The file seems to be '
+                                f'valid but the conversion process was not completely successful. Please click '
+                                f'"Show Details..." for more information and consider reporting this as a bug.')
+                    msg.setDetailedText('\n'.join(self.ed_transformer.errors))
+                    msg.exec()
+                self.xml_origin = path
             self.editor.setPlainText(text)
             self.editor.start_debugging()
             self.set_window_title(path)
@@ -439,18 +479,18 @@ class TachysEditorWindow(QMainWindow):
                 cursor.setPosition(settings_mgr.text_cursor_pos)
                 self.editor.setTextCursor(cursor)
             self.editor.verticalScrollBar().setValue(settings_mgr.scroll_val)
+            return True
         else:
-            self.new_file()
+            return self.new_file()
 
     def create_leiden_file(self):
-        splitter = '\ue747'
-        # file version
-        text = '0.1.0' + splitter
-        # file config (split by semicolon: file_id)
-        text += str(self.file_id) + ';'
-        # text
-        text += splitter + self.editor.toPlainText()
-        return text
+        if not self.file_id:
+            self.set_new_file_id()
+        content = {'version': '0.2.0',
+                   'id': str(self.file_id),
+                   'xml_origin': self.xml_origin,
+                   'text': self.editor.toPlainText()}
+        return json.dumps(content)
 
     def set_window_title(self, path=None):
         if not path:
@@ -462,7 +502,7 @@ class TachysEditorWindow(QMainWindow):
         if not self.saving_enabled:
             QMessageBox.warning(self, 'Saving Disabled', 'Due to the current viewing mode, saving is disabled.')
             return False
-        if show_dialog or not self.file_path:
+        if show_dialog or not self.file_path.endswith('.leiden'):
             path, _ = self.file_dialog.getSaveFileName(filter=file_filter)
         elif file_filter == '*.leiden':
             path = self.file_path

@@ -31,7 +31,6 @@ class DebugWorker(QObject):
         self.is_running = False
         self.enabled = True
         self.debug_executor = ProcessPoolExecutor(max_workers=os.cpu_count() - 1)
-        self.analyzer = ProcessPoolExecutor(max_workers=os.cpu_count() - 1)
         self.previous_error_info = []
         self.errors: list[ParserError] = []
         self.lines_changed_indices: list[int] = []
