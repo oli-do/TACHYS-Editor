@@ -583,8 +583,9 @@ class EpiDocTransformer:
                         self.text += self.transform_node(main_div)
                     except EssentialAttributeMissingException:
                         return ''
-                    text = list(filter(None, self.text.split('\n')))
-                    self.text = '\n'.join(text)
+                    lines = [line for line in self.text.splitlines() if line is not None and str(line).strip()]
+                    self.text = '\n'.join(lines)
+                    print(self.text)
                     self.text = self.text.replace('=>=D>=D>', '=>=D>\n=D>')
                     return self.text
                 else:
@@ -656,21 +657,21 @@ class EpiDocTransformer:
                 lang = attrs['xml:lang']
             except KeyError:
                 return self.essential_attribute_missing(node, 'xml:lang')
-            return f'<S=.{lang}', ''
+            return f'<S=.{lang}\n', ''
         elif div_type == 'textpart':
             n = attrs['n']
             if 'subtype' in attrs:
                 subtype = '.' + attrs['subtype']
             else:
                 subtype = ''
-            return f'<D=.{n}{subtype}', '=D>'
+            return f'\n<D=.{n}{subtype}', '=D>'
         else:
             self.unsupported_attribute_value(node, 'type', div_type)
             return '', ''
 
     @staticmethod
     def ab(node: Tag):
-        return '<=', '=>'
+        return '<=', '\n=>'
 
     def lb(self, node: Tag):
         attrs = node.attrs
@@ -1174,15 +1175,3 @@ class EpiDocTransformer:
     def foreign(node: Tag):
         lang = node.attrs['xml:lang']
         return '~|', f'|~{lang} '
-
-
-if __name__ == '__main__':
-    transformer = EpiDocTransformer()
-    print(transformer.transform('C:/Users/Oliver/Desktop/GEMF 57.xml'))
-
-
-
-
-
-
-

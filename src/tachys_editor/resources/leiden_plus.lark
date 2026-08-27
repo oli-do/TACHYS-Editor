@@ -46,8 +46,8 @@ LB: "-"
 OR: " or "
 
 // TEXT \u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe
-TEXT: /[’͵;,·˙𐅵𐅷𐅸ϙϡ\u037e-\u03ce\u03da-\u03e4\u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]+(?![\u0323\u0304])/
-GREEK_CHAR: /[𐅵𐅷𐅸ϙϡϛϚα-ωΑ-ΩΌΏΎΊΉᾲᾀᾁᾂᾃᾅᾇέάΐήώίόύϝϋϊᾄᾆᾳᾴᾷαβγδεζηθικλμνξοπρστυφχψωἀἄἂἆἁἅἃἇάὰᾶἐἔἒἑἕἓὲέἠἤἢἦἡἥἣἧὴήᾐᾑᾒᾓᾔᾕᾖᾗῂῃῄῆῇἰἴἲἶἱἵἳἷὶίῐῑῒΐῖῗὀὄὂὁὅὃὸόὐὑὒὓὔὕὖὗὺῦύῠῡῢΰῧὠὤὢὦὡὥὣὧώὼᾠᾡᾢᾣᾤᾥᾦᾧῲῳῴῶῷῤῥἈἌἊἎἉἍἋἏᾺΆᾼᾈᾉᾊᾋᾌᾍᾎᾏἘἜἚἙἝἛῈΈἨἬἪἮἩἭἫἯῊΉῌᾘᾙᾚᾛᾜᾝᾞᾟἸἼἺἾἹἽἻἿΊῚῘῙὈὌὊὉὍὋΌῸὙὝὛὟΎῪῨῩὨὬὪὮὩὭὫὯΏῺῼᾨᾩᾪᾫᾬᾭᾮᾯῬς]/
+TEXT: /[’͵;,·˙\p{L}]+(?![\u0323\u0304])/
+TEXT_CHAR: /[\p{L}]/
 NON_DEF_TEXT: /.[^|]+/
 NOTE_TEXT: /.[^*]+/
 NAME: /[a-zA-Z]+/
@@ -165,7 +165,7 @@ line_double: _LINE_START LINE_NUMBER "/" LINE_NUMBER "." [LB] " "
 line_break_app: LINE_NUMBER ".- "
 line_margin: _LINE_START LINE_NUMBER LIN_MARGIN "." [LB] " "
 line_rend: _LINE_START "(" LINE_NUMBER ["." LB] ", " LIN_FORMAT ") "
-line_formatted: _LINE_START LINE_NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
+line_formatted: _LINE_START "(" LINE_NUMBER LIN_MARGIN ["." LB] ", " LIN_FORMAT ") "
 
 // ADD
 add_above: "\\" items [CERT_LOW] "/"
@@ -180,7 +180,7 @@ add_underline: "<_" items [CERT_LOW] "_>"
 tall: "~||" items "||~tall"
 superscripted: "|^" items "^|"
 subscripted: "\\|" items "|/"
-supralinear_stroke: (GREEK_CHAR [UNDERDOT] "\u0304" | supra_escape [UNDERDOT])+
+supralinear_stroke: (TEXT_CHAR [UNDERDOT] "\u0304" | supra_escape [UNDERDOT])+
 supraline: "¯" items "¯"
 underline: "_" items "_"
 supraline_underline: "¯_" items "_¯"
@@ -207,13 +207,13 @@ supplied_lost: "[" items [CERT_LOW] "]"
 gap_lost: "[" (CIRCA | DOT) (range | QUANTITY | EXTENT_UNKNOWN) "]" [OR gap_lost]
 parallel: "|_" items [CERT_LOW] "_|"
 parallel_lost: "_[" items [CERT_LOW] "]_"
-?unclear_char: GREEK_CHAR "\u0323"
+?unclear_char: TEXT_CHAR "\u0323"
 unclear: unclear_char+
 handshift: "$" NAME_OR_NUMBER [CERT_LOW] " "
 note: "/*" NOTE_TEXT "*/"
 quotation: QMARK items QMARK
 diacritical: DIAERESIS | ASPER | ACUTE | CIRCUMFLEX | LENIS | GRAVE
-diacritical_element: " " (GREEK_CHAR | supplied_lost | gap_lost | illegible | unclear) "(" diacritical+ ")"
+diacritical_element: " " (TEXT_CHAR | supplied_lost | gap_lost | illegible | unclear) "(" diacritical+ ")"
 ex: "(" items [CERT_LOW] ")"
 expansion: "(" ex_or_text+ ")"
 

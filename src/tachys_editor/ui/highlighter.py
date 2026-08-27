@@ -5,7 +5,7 @@ from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 class TachysHighlighter(QSyntaxHighlighter):
     def __init__(self, document):
         super().__init__(document)
-        self.text = '[ ’͵;,·˙\u037e-\u03ce\u03da-\u03e4\u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe\u0300-\u0301\u0313-\u0314\u0340-\u0345]'
+        self.text = r'[\p{L}]'
         self.highlighting_rules = []
         self.do_error_highlighting = False
         self.parser_errors = []

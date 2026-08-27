@@ -4,9 +4,10 @@ from time import time
 import os
 import threading
 
+from typing import Literal
 
-from .parser import TachysParser, ParserError
-parser = TachysParser()
+from .parser import ParserError
+from ..shared.objects import parser
 
 
 def debug(line: str, i: int):
@@ -19,6 +20,10 @@ def debug_full(text, previous_text):
         return error_info
     else:
         return None
+
+
+def _init_worker(lang: Literal['grc', 'la']):
+    parser.set_language(lang)
 
 
 class DebugWorker(QObject):
@@ -35,6 +40,18 @@ class DebugWorker(QObject):
         self.errors: list[ParserError] = []
         self.lines_changed_indices: list[int] = []
         self.debug_start_time = 0
+        self.lang: str = ''
+
+    def set_language(self, lang):
+        if lang != self.lang:
+            self.lang = lang
+            self.debug_executor.shutdown(wait=False, cancel_futures=True)
+            self.debug_executor = ProcessPoolExecutor(
+                max_workers=os.cpu_count() - 1,
+                initializer=_init_worker,
+                initargs=(lang,)
+            )
+            self.errors = []
 
     def run(self):
         if self.enabled and not self.is_running:

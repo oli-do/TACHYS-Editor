@@ -1,4 +1,5 @@
 import re
+from typing import Literal
 
 import pyperclip
 import roman
@@ -11,6 +12,8 @@ from .highlighter import TachysHighlighter
 from ..core.debug import DebugWorker
 from ..core.format import PasteManager, format_numerals
 from ..shared.settings import settings_mgr
+from ..shared.objects import parser
+from ..shared.grammar import get_lang_chars
 
 added_fmt = QTextCharFormat()
 added_fmt.setBackground(QColor("#d4fedd"))
@@ -169,10 +172,27 @@ class TachysEditor(QPlainTextEdit):
     def on_cursor_position_changed(self):
         self.highlight_current_line()
 
+    def set_language(self, lang: Literal['grc', 'la', 'cop', 'any']):
+        parser.set_language(lang)
+        self.highlighter.update_error_highlighting([])
+        self.highlighter.text = get_lang_chars(lang)
+        self.debug_worker.set_language(lang)
+        self.lines_changed = [i for i in range(self.blockCount())]
+
     def on_contents_change(self, position, _, __):
         block = self.document().findBlock(position)
         line = block.blockNumber()
         self.lines_changed.append(line)
+        if line == 0:
+            text = block.text().strip()
+            if text == '<S=.grc':
+                self.set_language('grc')
+            elif text == '<S=.la':
+                self.set_language('la')
+            elif text == '<S=.cop':
+                self.set_language('cop')
+            else:
+                self.set_language('any')
         if self.do_debugging:
             self.request_debugging()
 

@@ -1,6 +1,8 @@
 from importlib.resources import files
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from typing import Literal
+from ..shared.grammar import build_text_rules
 
 import unicodedata
 from lark import Lark, exceptions
@@ -66,22 +68,50 @@ class TachysParser:
         with open(grammar_path, 'r', encoding='utf-8') as file:
             leiden_grammar = file.read()
         self.grammar = leiden_grammar
+        self.lang = ''
+        self.unicode_normalization: Literal['NFC', 'NFD'] = 'NFC'
         self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve', regex=True)
+        self.full_parser = Lark(self.grammar, parser='earley', regex=True)
         self.executor = ProcessPoolExecutor(max_workers=3)
+
+    def set_language(self, lang: Literal['grc', 'la', 'cop', 'any']):
+        if lang == 'la':
+            self.set_unicode_normalization('NFD')
+        else:
+            self.set_unicode_normalization('NFC')
+        grammar_lines = self.grammar.splitlines()
+        index_text_rule = None
+        index_text_char_rule = None
+        for i in range(len(grammar_lines)):
+            target = grammar_lines[i]
+            if target.startswith('TEXT:'):
+                index_text_rule = i
+            if target.startswith('TEXT_CHAR:'):
+                index_text_char_rule = i
+        if not index_text_rule or not index_text_char_rule:
+            return False
+        grammar_lines[index_text_rule], grammar_lines[index_text_char_rule] = build_text_rules(lang)
+        self.lang = lang
+        self.grammar = '\n'.join(grammar_lines)
+        self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False,
+                                maybe_placeholders=False, ambiguity='resolve', regex=True)
+        self.full_parser = Lark(self.grammar, parser='earley', regex=True)
+        self.errors = []
+        return True
+
+    def set_unicode_normalization(self, norm: Literal['NFC', 'NFD']):
+        self.unicode_normalization = norm
 
     def set_print_debug_info(self, print_debug_info: bool):
         self.print_debug_info = print_debug_info
 
     def parse_full(self, text):
-        text = unicodedata.normalize('NFC', text)
+        text = unicodedata.normalize(self.unicode_normalization, text)
         if self.print_debug_info:
             print('\n### PARSE ###\n')
             print(f'TEXT\n{text}')
-        with open(grammar_path, 'r', encoding='utf-8') as file:
-            leiden_grammar = file.read()
-        parser = Lark(leiden_grammar, parser='earley', regex=True)
         try:
-            tree = parser.parse(text)
+            tree = self.full_parser.parse(text)
             if self.print_debug_info:
                 print(f'TREE\n{tree}')
             self.errors = []
@@ -184,7 +214,7 @@ class TachysParser:
         :param i: Index of the line to parse.
         :return: ParserError | None if no error.
         """
-        line = unicodedata.normalize('NFC', line)
+        line = unicodedata.normalize(self.unicode_normalization, line)
         try:
             self.fast_parser.parse('\ue747' + line)
             error = None
