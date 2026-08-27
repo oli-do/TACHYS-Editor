@@ -1,24 +1,25 @@
 ## About 
-**TACHYS Editor** is a QT-based editor for encoding (primarily Ancient Greek) texts in Leiden+ according
-to the EpiDoc standard. It provides helpful functions to make encoding as simple, correct, and fast as
-possible.
+**TACHYS Editor** is a QT-based editor for encoding texts in Leiden+ according to the EpiDoc standard. 
+It provides helpful functions to make encoding as simple, correct, and fast as possible.
 
 ## Main Features
 - **Live Debugging** with error highlighting
 - **Extended Leiden+ grammar** for features yet unsupported by the Papyrological Editor
 - **Improved Leiden+ grammar** with fixes for common issues
 - **Syntax Highlighting** for increased readability
-- **Whitelist for Ancient Greek text** (which proactively avoids typos produced by confusing Latin and Greek characters)
-- **Keyboard shortcuts** for frequently used Leiden+ expressions
-- **Automatic line numbering**
-- **Automatic \<div> numbering**
-- **Automatic numeral conversion** (according to the Byzantine system)
-- **IntelliPaste** featuring automatic lunate sigma conversion and much more when text is pasted
+- **Character Whitelist for Various Languages**: Full support for Latin, Coptic, Ancient Greek (which, for instance, proactively avoids typos produced by confusing Latin and Greek characters)
+- **Keyboard Shortcuts** for frequently used Leiden+ expressions
+- **Automatic Line Numbering**
+- **Automatic \<div> Numbering**
+- **Automatic Numeral Conversion** (according to the Byzantine system)**
+- **IntelliPaste** featuring automatic lunate sigma conversion and much more when text is pasted**
 - **Prediction of Orthographic Regularizations** based on highly performant machine-learning techniques*
-- **Change tracking** for peer review (view changes, export changes, import changes)*
-- **XML export**
+- **Change Tracking** for peer review (view changes, export changes, import changes)*
+- **Leiden+ to XML conversion**: Convert your texts to TEI-XML according to EpiDoc guidelines
+- **XML to Leiden+ conversion**: Integrate your Leiden+ encoded text directly into the TEI structure
 
-\* Feature in development - works but has not yet reached the intended quality.
+\* Feature in development - works but has not yet reached the intended quality.  
+\** Feature currently supports only Ancient Greek
 
 ## Extended Leiden+ Grammar
 | Name           | Description                                                                           | Leiden+ | XML                               |
