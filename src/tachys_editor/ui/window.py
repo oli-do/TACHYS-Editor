@@ -16,6 +16,7 @@ from ..core.parser import TachysParser
 from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
 from ..core.ai import AIManager
 from ..shared.settings import tracking_dir, settings_mgr, app_name
+from ..shared.objects import parser
 
 from importlib.resources import files
 documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_documentation.html'))
@@ -349,13 +350,16 @@ class TachysEditorWindow(QMainWindow):
 
     def export_to_xml(self):
         text = self.editor.toPlainText()
+        print('shared parser lang:', parser.lang)
+        self.parser.set_language(parser.lang)
+        self.parser.errors = []
         tree = self.parser.parse_full(text)
         if tree:
             inner_body = self.lp_transformer.transform(tree)
             if self.xml_origin:
                 xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
             else:
-                xml = self.tei_builder.build_raw(inner_body)
+                xml = self.tei_builder.build_placeholder(inner_body)
             self.save_file(True, xml, '*.xml')
         else:
             self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')

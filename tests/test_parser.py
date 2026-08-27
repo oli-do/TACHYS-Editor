@@ -1,10 +1,10 @@
 import unittest
 import unicodedata
 
-from src.tachys_editor.core.parser import TachysParser
-
-parser = TachysParser()
+from src.tachys_editor.shared.objects import parser
 parser.set_print_debug_info(True)
+parser.set_language('grc')
+parser.set_unicode_normalization('NFC')
 div_start = '<S=.grc\n<D=.1.fragment<=\n'
 div_end = '\n=>=D>'
 
@@ -14,8 +14,9 @@ def insert(leiden_text: str):
 
 
 def parser_test(text: str):
+    parser.file_errors.clear()
     parser.parse_full(text)
-    return parser.errors
+    return parser.file_errors
 
 
 class TestParser(unittest.TestCase):
@@ -153,8 +154,8 @@ class TestParser(unittest.TestCase):
             self.assertFalse(parser_test(test))
 
     def test_handshift(self):
-        test_list = [insert('1. $m4'),
-                     insert('1. $m3(?) α')]
+        test_list = [insert('1. $m4 '),
+                     insert('1. $m3(?) αβγ')]
         for test in test_list:
             self.assertFalse(parser_test(test))
 
@@ -226,8 +227,8 @@ class TestParser(unittest.TestCase):
             self.assertFalse(parser_test(test))
 
     def test_non_default_language(self):
-        test_list = [insert('1. ~|γενήσεται|~grc'),
-                     insert('1. ~|comes|~la')]
+        test_list = [insert('1. ~|γενήσεται|~grc '),
+                     insert('1. ~|comes|~la ')]
         for test in test_list:
             self.assertFalse(parser_test(test))
 
@@ -258,6 +259,23 @@ class TestParser(unittest.TestCase):
                      insert('1.  ι̣(¨)')]
         for test in test_list:
             self.assertFalse(parser_test(test))
+
+    def test_language_change(self):
+        parser.set_language('la')
+        test = insert('1. αβγ')
+        self.assertTrue(parser_test(test))
+        test = insert('1. Vita Briani ROMANOS EUNT DOMUS')
+        print('test return', parser_test(test))
+        self.assertFalse(parser_test(test))
+        parser.set_language('grc')
+
+    def test_parse_line(self):
+        parser.errors.clear()
+        lines = ['1. <αβγ2- δεφ|reg|αβγ', '2.- δεφ:>']
+        for i in range(len(lines)):
+            parser.parse_line(lines[i], i)
+        errors = parser.validate_line_errors(lines, parser.errors)
+        self.assertFalse(errors)
 
     def test_dclp_63087(self):
         test = '''<S=.grc
