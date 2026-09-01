@@ -1,4 +1,4 @@
-from PySide6.QtCore import QRegularExpression
+from PySide6.QtCore import QRegularExpression, Slot
 from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
 
 
@@ -123,10 +123,15 @@ class TachysHighlighter(QSyntaxHighlighter):
                         break
                     self.setFormat(column - 2, format_count + 1, self.error_format)
 
+    @Slot(list)
     def update_error_highlighting(self, error_data):
         print(f'Highlighter: highlight errors {error_data}')
         self.do_error_highlighting = True
         self.error_map = {}
+        if not error_data:
+            self.rehighlight()
+            self.do_error_highlighting = False
+            return
         for error_id, line, column, char in error_data:
             if line not in self.error_map:
                 self.error_map[line] = []

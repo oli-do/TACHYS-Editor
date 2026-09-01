@@ -7,10 +7,11 @@ from typing import Callable
 
 from PySide6.QtGui import QFont, QTextCursor, QAction, QTextCharFormat
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QApplication
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QUrl, Qt
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from .editor import TachysEditor
+from .docks import BottomDock
 from ..core.change_tracker import ChangeTracker
 from ..core.parser import TachysParser
 from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
@@ -52,7 +53,7 @@ class TachysEditorWindow(QMainWindow):
         self.setCentralWidget(self.editor)
         self.editor.default_font_size = (round(0.013 * self.screen_height))
         self.editor_font = QFont(settings_mgr.font)
-        self.editor_font.setPointSize(self.editor.default_font_size * settings_mgr.zoom_level)
+        self.editor_font.setPointSize(round(self.editor.default_font_size * settings_mgr.zoom_level))
         self.editor.setFont(self.editor_font)
         self.resize(self.width, self.height)
         self.file_dialog = QFileDialog()
@@ -64,6 +65,10 @@ class TachysEditorWindow(QMainWindow):
         self.init_ui()
         self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
         self.action_view_changes = self.get_menu_action(self.menubar, 'View Changes')
+        # Docks
+        self.bottom_dock = BottomDock(self.editor)
+        self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.bottom_dock)
+        self.editor.debug_worker.signal_error_info.connect(self.bottom_dock.on_problems_received)
         # New File
         if settings_mgr.last_file:
             self.open_file(settings_mgr.last_file)
@@ -236,6 +241,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(submenu_zoom, 'Zoom In', self.editor.zoomIn, 'Ctrl++', tooltip='Alternatively: Ctrl+Mousewheel Up')
         self.add_menu_action(submenu_zoom, 'Zoom Out', self.editor.zoomOut, 'Ctrl+-', tooltip='Alternatively: Ctrl+Mousewheel Down')
         view_menu.addMenu(submenu_zoom)
+        self.add_menu_action(view_menu, 'Problems', lambda: self.bottom_dock.setVisible(True))
         # Changes Menu
         changes_menu = self.menubar.addMenu('Changes')
         changes_menu.setToolTipsVisible(True)
@@ -401,6 +407,7 @@ class TachysEditorWindow(QMainWindow):
 
     def reset(self):
         self.editor.stop_debugging()
+        self.bottom_dock.reset()
         self.editor.clear()
         self.tracker.active = False
         self.set_checked_no_signal(self.action_track_changes, False)
