@@ -441,3 +441,9 @@ class TachysEditor(QPlainTextEdit):
         cursor.select(QTextCursor.SelectionType.LineUnderCursor)
         line_text = cursor.selectedText()
         return line_text
+
+    def navigate_to_line(self, line: int):
+        block = self.document().findBlockByLineNumber(line)
+        cursor = QTextCursor(block)
+        self.setTextCursor(cursor)
+        self.ensureCursorVisible()

@@ -36,7 +36,6 @@ class DebugWorker(QObject):
         self.is_running = False
         self.enabled = True
         self.debug_executor = ProcessPoolExecutor(max_workers=os.cpu_count() - 1)
-        self.previous_error_info = []
         self.errors: list[ParserError] = []
         self.lines_changed_indices: list[int] = []
         self.debug_start_time = 0
@@ -96,9 +95,7 @@ class DebugWorker(QObject):
             self.previous_text = self.text
             self.errors = parser.validate_line_errors(self.text.splitlines(), self.errors)
             error_info = [(error.id, error.line, error.column, error.char) for error in self.errors]
-            if error_info:
-                self.previous_error_info = error_info
-                self.signal_error_info.emit(error_info)
+            self.signal_error_info.emit(error_info)
         debug_time = (time() - self.debug_start_time) * 1000
         print(f'DebugWorker: took {debug_time} ms')
         self.is_running = False
