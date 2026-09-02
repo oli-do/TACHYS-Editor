@@ -1,5 +1,5 @@
 from PySide6.QtCore import QRegularExpression, Slot
-from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
+from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QTextFormat
 
 
 class TachysHighlighter(QSyntaxHighlighter):
@@ -25,6 +25,25 @@ class TachysHighlighter(QSyntaxHighlighter):
         self.super_div_format.setForeground(QColor("purple"))
         self.def_lang_Format = QTextCharFormat()
         self.def_lang_Format.setForeground(QColor("purple"))
+        self.xml_format = QTextCharFormat()
+        self.xml_format.setForeground(QColor("darkOrange"))
+        self.xml_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.xml_attr_format = QTextCharFormat()
+        self.xml_attr_format.setForeground(QColor("darkBlue"))
+        self.xml_attr_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.xml_attr_format.setUnderlineColor("darkOrange")
+        self.xml_value_format = QTextCharFormat()
+        self.xml_value_format.setForeground(QColor("darkGreen"))
+        self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.xml_value_format.setUnderlineColor("darkOrange")
+        self.xml_text_format = QTextCharFormat()
+        self.xml_text_format.setForeground(QColor("green"))
+        self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.xml_value_format.setUnderlineColor("darkOrange")
+        self.xml_section_regex = QRegularExpression(r'§([^§]+)§')
+        self.xml_tag_regex = QRegularExpression(r'</?([\w:-]+)')
+        self.xml_attr_regex = QRegularExpression(r'([\w:-]+)=("[^"]*"|\'[^\']*\')')
+        self.xml_text_regex = QRegularExpression(r'>([^<]+)<')
         self.error_format = QTextCharFormat()
         self.error_format.setUnderlineColor(QColor("red"))
         self.error_format.setForeground(QColor("red"))
@@ -103,25 +122,54 @@ class TachysHighlighter(QSyntaxHighlighter):
 
     def highlightBlock(self, text):
         for expression, formatting in self.compiled_rules:
-            match = expression.globalMatch(text)  # globalMatch is faster for loops
+            match = expression.globalMatch(text)
             while match.hasNext():
                 m = match.next()
                 self.setFormat(m.capturedStart(), m.capturedLength(), formatting)
+        xml_matches = self.xml_section_regex.globalMatch(text)
+        while xml_matches.hasNext():
+            m = xml_matches.next()
+            self.setFormat(m.capturedStart(), m.capturedLength(), self.xml_format)
+            content_start = m.capturedStart(1)
+            content_text = m.captured(1)
+
+            # Highlight Tag Names
+            tag_matches = self.xml_tag_regex.globalMatch(content_text)
+            while tag_matches.hasNext():
+                tm = tag_matches.next()
+                self.setFormat(content_start + tm.capturedStart(1), tm.capturedLength(1), self.xml_format)
+
+            # Highlight Attributes
+            attr_matches = self.xml_attr_regex.globalMatch(content_text)
+            while attr_matches.hasNext():
+                am = attr_matches.next()
+                self.setFormat(content_start + am.capturedStart(1), am.capturedLength(1), self.xml_attr_format)
+                self.setFormat(content_start + am.capturedStart(2), am.capturedLength(2), self.xml_value_format)
+
+            # Highlight Inner Text
+            text_matches = self.xml_text_regex.globalMatch(content_text)
+            while text_matches.hasNext():
+                tm = text_matches.next()
+                self.setFormat(content_start + tm.capturedStart(1), tm.capturedLength(1), self.xml_text_format)
         if self.do_error_highlighting:
             line_num = self.currentBlock().blockNumber()
             if line_num in self.error_map:
                 for error_id, column, _ in self.error_map[line_num]:
                     index = column - 1
+                    start = column - 2
                     if error_id == 0:
                         format_count = len(text) - index
                     elif error_id == 1:
                         format_count = len(text) - index
                     elif error_id == 2:
-                        column = 2
+                        start = 0
                         format_count = len(text)
+                    elif error_id == 3:
+                        format_count = len(text) - index
+                        start = column
                     else:
                         break
-                    self.setFormat(column - 2, format_count + 1, self.error_format)
+                    self.setFormat(start, format_count + 1, self.error_format)
 
     @Slot(list)
     def update_error_highlighting(self, error_data):
@@ -132,7 +180,7 @@ class TachysHighlighter(QSyntaxHighlighter):
             self.rehighlight()
             self.do_error_highlighting = False
             return
-        for error_id, line, column, char in error_data:
+        for error_id, line, column, char, _ in error_data:
             if line not in self.error_map:
                 self.error_map[line] = []
             self.error_map[line].append((error_id, column, char))

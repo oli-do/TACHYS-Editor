@@ -94,7 +94,7 @@ class DebugWorker(QObject):
                     self.errors.append(future.result())
             self.previous_text = self.text
             self.errors = parser.validate_line_errors(self.text.splitlines(), self.errors)
-            error_info = [(error.id, error.line, error.column, error.char) for error in self.errors]
+            error_info = [(error.id, error.line, error.column, error.char, error.details) for error in self.errors]
             self.signal_error_info.emit(error_info)
         debug_time = (time() - self.debug_start_time) * 1000
         print(f'DebugWorker: took {debug_time} ms')

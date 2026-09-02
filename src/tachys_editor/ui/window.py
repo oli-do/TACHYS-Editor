@@ -256,6 +256,7 @@ class TachysEditorWindow(QMainWindow):
         help_menu = self.menubar.addMenu('Help')
         self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', documentation_path, True))
         self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('Sigla, Special Characters, Scribal Punctuation & Glyphs', 'https://github.com/papyri/site-docs/blob/master/gtypes.md'))
+        self.add_menu_action(help_menu, 'EpiDoc Guidelines', lambda: self.show_in_web('EpiDoc Guidelines','https://epidoc.stoa.org/gl/latest/'))
         self.menubar.addMenu(help_menu)
 
     def show_in_web(self, window_name, url, local=False):
@@ -467,7 +468,6 @@ class TachysEditorWindow(QMainWindow):
                 text = self.ed_transformer.transform(path)
                 msg = QMessageBox()
                 if not text:
-                    print('CONVERSION ERROR')
                     msg.setWindowTitle('CONVERSION ERROR')
                     msg.setText(f'XML Conversion to Leiden+ failed due to one or more XML errors. Please click "Show '
                                 f'Details..." for more information.')

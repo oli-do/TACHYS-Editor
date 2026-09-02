@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Literal
 from ..shared.grammar import build_text_rules
+from .transformer import LeidenPlusTransformer
 
 import unicodedata
 from lark import Lark, exceptions
@@ -52,12 +53,30 @@ def find_multiline_pairs(lines: list[str], opening: str, closing: str = None):
 
 @dataclass
 class ParserError:
+    """
+    Stores Error Information.
+
+    Attributes:
+        type: Type or name of the error.
+        id: Error ID:
+        line: Line number of the error.
+        column: Column number of the error.
+        char: Affected character.
+        expected: Expected set of characters.
+        details: Details of the error.
+
+    - id=0: Unexpected Characters
+    - id=1: Unexpected Token
+    - id=2: Unexpected EOF
+    - id=3: XMLError
+    """
     type: str
     id: int
     line: int
     column: int
     char: str | None
     expected: set[str] | None
+    details: str = ''
 
 class TachysParser:
     def __init__(self):
@@ -70,9 +89,10 @@ class TachysParser:
         self.grammar = leiden_grammar
         self.lang = ''
         self.unicode_normalization: Literal['NFC', 'NFD'] = 'NFC'
-        self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False, maybe_placeholders=False, ambiguity='resolve', regex=True)
+        self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False, ambiguity='resolve', regex=True)
         self.full_parser = Lark(self.grammar, parser='earley', regex=True)
         self.executor = ProcessPoolExecutor(max_workers=3)
+        self.transformer = LeidenPlusTransformer()
 
     def set_language(self, lang: Literal['grc', 'la', 'cop', 'any']):
         if lang == 'la':
@@ -94,7 +114,7 @@ class TachysParser:
         self.lang = lang
         self.grammar = '\n'.join(grammar_lines)
         self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False,
-                                maybe_placeholders=False, ambiguity='resolve', regex=True)
+                                ambiguity='resolve', regex=True)
         self.full_parser = Lark(self.grammar, parser='earley', regex=True)
         self.errors = []
         return True
@@ -215,8 +235,9 @@ class TachysParser:
         :return: ParserError | None if no error.
         """
         line = unicodedata.normalize(self.unicode_normalization, line)
+        tree = None
         try:
-            self.fast_parser.parse('\ue747' + line)
+            tree = self.fast_parser.parse('\ue747' + line)
             error = None
         except exceptions.UnexpectedCharacters as e:
             error = ParserError(e.__class__.__name__, 0, i, e.column, e.char, None)
@@ -224,4 +245,11 @@ class TachysParser:
             error = ParserError(e.__class__.__name__, 1, i, e.column, None, e.expected)
         except exceptions.UnexpectedEOF as e:
             error = ParserError(e.__class__.__name__, 2, i, e.column, None, None)
+        if tree:
+            has_xml = tree.find_token('hybrid_xml')
+            if has_xml:
+                self.transformer.errors = []
+                self.transformer.transform(tree)
+                if self.transformer.errors:
+                    error = ParserError('XMLError', 3, i, line.find('§'), None, None)
         return error

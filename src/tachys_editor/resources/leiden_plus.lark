@@ -150,6 +150,7 @@ items: item+
     | text
     | lines_untranscribed
     | characters_untranscribed
+    | hybrid_xml
 
 ?ex_or_text: ex | TEXT | illegible | supplied_lost | gap_lost | unclear | line | line_margin | line_rend | line_formatted | omitted | surplus
 
@@ -246,6 +247,10 @@ omitted_language: "(Lang: " NAME " " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN)
 // UNTRANSCRIBED
 lines_untranscribed: "(Lines: " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) " non transcribed)"
 characters_untranscribed: "(Chars: " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN) " non transcribed)"
+
+// HYBRID XML
+XML_TAG: /<\/?[a-zA-Z_][\w:.-]*[^>]*>/
+hybrid_xml: "§" XML_TAG+ [TEXT] [XML_TAG+] "§"
 
 // TEXT
 text_full_stop: DOT
