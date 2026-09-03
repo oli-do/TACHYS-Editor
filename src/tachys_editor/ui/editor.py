@@ -5,7 +5,7 @@ import pyperclip
 import roman
 import unicodedata
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
-from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QShortcut, QKeySequence
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel, QHBoxLayout
 
 from .highlighter import TachysHighlighter
@@ -100,10 +100,6 @@ class TachysEditor(QPlainTextEdit):
         self.do_debugging = True
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.paste_mgr = PasteManager()
-        self.shortcut_paste_greek = QShortcut(QKeySequence("Ctrl+Alt+V"), self)
-        self.shortcut_paste_greek.activated.connect(self.paste_greek)
-        self.shortcut_find = QShortcut(QKeySequence("Ctrl+F"), self)
-        self.shortcut_find.activated.connect(self.find_and_replace)
         self.dialog_find_and_replace = FindAndReplaceDialog(self)
         self.original_paste_text = ''
         self.selected_text = ''
@@ -117,7 +113,6 @@ class TachysEditor(QPlainTextEdit):
         self.debug_timer = QTimer()
         self.debug_timer.setSingleShot(True)
         self.debug_timer.timeout.connect(self.start_debugging)
-        self.debug_delay = settings_mgr.debug_delay
         self.lines_changed = []
         self.document().contentsChange.connect(self.on_contents_change)
         self.cursorPositionChanged.connect(self.on_cursor_position_changed)
@@ -214,7 +209,7 @@ class TachysEditor(QPlainTextEdit):
             self.current_line_bg_highlight = highlight_line
 
     def request_debugging(self):
-        self.debug_timer.start(self.debug_delay)
+        self.debug_timer.start(settings_mgr.editor.debug_delay)
 
     def start_debugging(self):
         if self.debug_worker.is_running:
@@ -338,41 +333,49 @@ class TachysEditor(QPlainTextEdit):
                     cursor.deletePreviousChar()
             except IndexError:
                 self.line_break = False
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_U):
-            if cursor.hasSelection():
-                replacement = ''
-                for char in cursor.selectedText():
-                    replacement += char + '\u0323'
-                cursor.insertText(replacement)
-            else:
-                cursor.insertText('\u0323')
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_L):
-            if cursor.hasSelection():
-                text = cursor.selectedText()
-                if len(text) > 1:
-                    cursor.insertText('¯' + cursor.selectedText() + '¯')
-                else:
-                    cursor.insertText(text + '\u0304')
-            else:
-                cursor.insertText('\u0304')
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_D):
-            if cursor.hasSelection():
-                cursor.insertText('〚' + cursor.selectedText() + '〛')
-            else:
-                cursor.insertText('〚〛')
-                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
-                self.setTextCursor(cursor)
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_0):
-            if cursor.hasSelection():
-                numeral = format_numerals(cursor.selectedText())
-                cursor.insertText(numeral)
-            else:
-                cursor.insertText('<#=#>')
-                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 2)
-                self.setTextCursor(cursor)
         elif event.key() == Qt.Key.Key_BracketLeft or event.key() == Qt.Key.Key_ParenLeft or event.key() == Qt.Key.Key_BraceLeft:
             self.selected_text = cursor.selectedText()
         super().keyPressEvent(event)
+
+    def insert_deletion(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            cursor.insertText('〚' + cursor.selectedText() + '〛')
+        else:
+            cursor.insertText('〚〛')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+            self.setTextCursor(cursor)
+
+    def insert_numeral(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            numeral = format_numerals(cursor.selectedText())
+            cursor.insertText(numeral)
+        else:
+            cursor.insertText('<#=#>')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 2)
+            self.setTextCursor(cursor)
+
+    def insert_underdot(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            replacement = ''
+            for char in cursor.selectedText():
+                replacement += char + '\u0323'
+            cursor.insertText(replacement)
+        else:
+            cursor.insertText('\u0323')
+
+    def insert_supralinear_stroke(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            if len(text) > 1:
+                cursor.insertText('¯' + cursor.selectedText() + '¯')
+            else:
+                cursor.insertText(text + '\u0304')
+        else:
+            cursor.insertText('\u0304')
 
     def keyReleaseEvent(self, event):
         cursor = self.textCursor()

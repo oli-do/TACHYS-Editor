@@ -58,7 +58,7 @@ You can set a custom font by editing the "font" entry in config.json (see [Local
 
 ### How to encode faster with TACHYS
 - Use shortcuts on marked text (e.g. Ctrl+0 will instantly apply numeral markup)
-- Use **IntelliPaste** (Ctrl+Alt+V)
+- Use **IntelliPaste** (Ctrl+Shift+V)
 
 ### Local Files
 TACHYS writes the following data to the *user_data_directory* of your file system:
