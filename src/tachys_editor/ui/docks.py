@@ -36,7 +36,7 @@ class BottomDock(QDockWidget):
         self.has_active_problems = True
 
     @Slot(list)
-    def on_problems_received(self, problems: list[tuple[int, int, int, str]]):
+    def on_problems_received(self, problems: list[tuple[int, int, int, str, str]]):
         self.setWindowTitle(f'Problems ({len(problems)})')
         if problems:
             self.list_widget.clear()
@@ -61,9 +61,15 @@ class BottomDock(QDockWidget):
             elif problem_id == 1:
                 desc = ' Unexpected Expression. A Leiden+ expression is not allowed here'
                 symbol = '⛔'
-            else:
+            elif problem_id == 2:
                 desc = 'Incomplete Syntax. Check for any unclosed expressions or a missing space character'
                 symbol = '⚠️'
+            elif problem_id == 3:
+                desc = f'Incorrect XML. Make sure to follow the EpiDoc guidelines.'
+                symbol = '⛔'
+            else:
+                desc = f'Unknown Problem.'
+                symbol = '⛔'
             self.add_problem(symbol, line, desc)
 
 

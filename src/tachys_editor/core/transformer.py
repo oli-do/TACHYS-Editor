@@ -6,6 +6,9 @@ from importlib.resources import files
 
 
 schema_path = str(files('tachys_editor.resources').joinpath('tei-epidoc.rng'))
+schema = etree.parse(schema_path)
+rng = etree.RelaxNG(schema)
+ns = {'tei': 'http://www.tei-c.org/ns/1.0'}
 
 
 def inner_xml(start: str, children: list[str], end: str):
@@ -65,6 +68,8 @@ class TEIBuilder:
 
 
 class LeidenPlusTransformer(Transformer):
+    tei_builder = TEIBuilder()
+    errors = []
 
     # DOCUMENT START
     @v_args(inline=True)
@@ -108,6 +113,10 @@ class LeidenPlusTransformer(Transformer):
     def DIV_CLOSE(self, _):
         xml = '</div>'
         return xml
+
+    def _leiden_line(self, children):
+        items = children[0]
+        return ''.join(items)
 
     # ITEMS
     def items(self, children):
@@ -557,6 +566,41 @@ class LeidenPlusTransformer(Transformer):
             precision_low = ''
         return f'<gap reason="ellipsis"{quantity_extent} unit="character"{precision_low}><desc>non transcribed</desc></gap>'
 
+    def is_valid_tei(self, xml: str):
+        self.errors = []
+        try:
+            root = etree.fromstring(xml.encode('utf-8'))
+            xml_doc = etree.ElementTree(root)
+        except etree.XMLSyntaxError as e:
+            self.errors.append(f'XML Syntax Error: {e}')
+            return None
+        if rng.validate(xml_doc):
+            return root
+        else:
+            for error in rng.error_log:
+                self.errors.append(f'Invalid EpiDoc XML: {error.message}')
+            return None
+
+    def XML_TAG(self, children):
+        return ''.join(children)
+
+    def hybrid_xml(self, children):
+        items = list(filter(None, children))
+        xml_text = ''.join(items)
+        print('xml_text', xml_text)
+        placeholder = self.tei_builder.build_placeholder(f'<div n="1" subtype="fragment" type="textpart"><ab>{xml_text}</ab></div>')
+        root = self.is_valid_tei(placeholder)
+        if root is not None:
+            ab = root.xpath('//tei:ab', namespaces=ns)[0]
+            first_element = ab[0]
+            tag = etree.QName(first_element.tag).localname
+            if tag == 'lb' or tag == 'milestone':
+                return '\n' + xml_text
+            else:
+                return xml_text
+        else:
+            return ''
+
 
 class EssentialAttributeMissingException(Exception):
     """
@@ -598,8 +642,6 @@ class EpiDocTransformer:
 
     def is_valid_tei(self, path: str):
         self.errors = []
-        schema = etree.parse(schema_path)
-        rng = etree.RelaxNG(schema)
         try:
             xml_doc = etree.parse(path)
         except etree.XMLSyntaxError as e:
