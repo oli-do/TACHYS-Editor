@@ -38,6 +38,8 @@ class TachysHighlighter(QSyntaxHighlighter):
         self.xml_value_format.setUnderlineColor("darkOrange")
         self.xml_text_format = QTextCharFormat()
         self.xml_text_format.setForeground(QColor("green"))
+        self.xml_text_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.xml_text_format.setUnderlineColor("darkOrange")
         self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
         self.xml_value_format.setUnderlineColor("darkOrange")
         self.xml_section_regex = QRegularExpression(r'§([^§]+)§')

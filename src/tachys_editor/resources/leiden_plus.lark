@@ -250,7 +250,7 @@ characters_untranscribed: "(Chars: " [CIRCA] (QUANTITY | range | EXTENT_UNKNOWN)
 
 // HYBRID XML
 XML_TAG: /<\/?[a-zA-Z_][\w:.-]*[^>]*>/
-hybrid_xml: "§" XML_TAG+ [TEXT] [XML_TAG+] "§"
+hybrid_xml: [_LINE_START] "§" XML_TAG+ [TEXT] [XML_TAG+] "§"
 
 // TEXT
 text_full_stop: DOT
