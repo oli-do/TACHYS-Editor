@@ -2,12 +2,17 @@ import sys
 import os
 import traceback
 import datetime
+from PySide6.QtCore import Qt
+from multiprocessing import freeze_support
+
+freeze_support()
 
 from PySide6.QtWidgets import QApplication, QStyleFactory
 
-from tachys_editor.ui.window import TachysEditorWindow
-from multiprocessing import freeze_support
+app = QApplication(sys.argv)
+
 from tachys_editor.shared.settings import data_dir, settings_mgr
+from tachys_editor.ui.window import TachysEditorWindow
 
 crash_log_file = os.path.join(data_dir, 'crashlog.txt')
 
@@ -24,23 +29,17 @@ sys.excepthook = catch_exceptions
 
 
 if __name__ == "__main__":
-    freeze_support()
-    app = QApplication(sys.argv)
-    app.setStyle(QStyleFactory.create("Fusion"))
-    screen = QApplication.primaryScreen()
-    size = screen.size()
-    screen_width = size.width()
-    screen_height = size.height()
-    width = round(0.75 * screen_width)
-    height = round(0.75 * screen_height)
-    default_ui_font_size = round(0.009 * screen_height)
-    settings_mgr.appearance.default_ui_font_size = default_ui_font_size
-    if settings_mgr.appearance.ui_font_size == -1:
-        settings_mgr.appearance.ui_font_size = default_ui_font_size
+    app.setStyle(QStyleFactory.create(settings_mgr.appearance.window_style))
+    theme = settings_mgr.appearance.theme
+    if theme == 'Dark':
+        app.styleHints().setColorScheme(Qt.ColorScheme.Dark)
+    elif theme == 'Light':
+        app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+    else:
+        settings_mgr.appearance.theme = app.styleHints().colorScheme().name
     font = app.font()
     font.setPointSize(settings_mgr.appearance.ui_font_size)
     app.setFont(font)
-    window = TachysEditorWindow(screen_height)
-    window.resize(width, height)
+    window = TachysEditorWindow()
     window.show()
     sys.exit(app.exec())

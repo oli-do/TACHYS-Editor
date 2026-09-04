@@ -1,5 +1,30 @@
 from PySide6.QtCore import QRegularExpression, Slot
-from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor, QTextFormat
+from PySide6.QtGui import QSyntaxHighlighter, QTextCharFormat, QColor
+
+from tachys_editor.shared.settings import settings_mgr
+
+
+def set_color(color: str):
+    theme = settings_mgr.appearance.theme
+    if theme == 'Dark':
+        if color == 'red':
+            return 'red'
+        if color == 'blue':
+            return QColor('cyan')
+        elif color == 'darkBlue':
+            return QColor('cyan')
+        elif 'dark' in color:
+            return color.replace('dark', '')
+        elif color == 'darkOrange':
+            return QColor('yellow').lighter()
+        else:
+            color = QColor(color)
+            new_color = color.lighter(300)
+        return new_color.name()
+    else:
+        if color == 'darkYellow':
+            return QColor('yellow').darker(180).name()
+        return color
 
 
 class TachysHighlighter(QSyntaxHighlighter):
@@ -10,45 +35,45 @@ class TachysHighlighter(QSyntaxHighlighter):
         self.do_error_highlighting = False
         self.parser_errors = []
         self.markup_format = QTextCharFormat()
-        self.markup_format.setForeground(QColor("green"))
+        self.markup_format.setForeground(QColor(set_color('green')))
         self.unclear_format = QTextCharFormat()
-        self.unclear_format.setForeground(QColor("darkGreen"))
+        self.unclear_format.setForeground(QColor(set_color('darkGreen')))
         self.special_format = QTextCharFormat()
-        self.special_format.setForeground(QColor("blue"))
+        self.special_format.setForeground(QColor(set_color("blue")))
         self.keyword_format = QTextCharFormat()
-        self.keyword_format.setForeground(QColor("darkMagenta"))
+        self.keyword_format.setForeground(QColor(set_color("darkMagenta")))
         self.line_format = QTextCharFormat()
-        self.line_format.setForeground(QColor('darkBlue'))
+        self.line_format.setForeground(QColor(set_color('darkBlue')))
         self.div_format = QTextCharFormat()
-        self.div_format.setForeground(QColor("darkBlue"))
+        self.div_format.setForeground(QColor(set_color("darkBlue")))
         self.super_div_format = QTextCharFormat()
-        self.super_div_format.setForeground(QColor("purple"))
+        self.super_div_format.setForeground(QColor(set_color("purple")))
         self.def_lang_Format = QTextCharFormat()
-        self.def_lang_Format.setForeground(QColor("purple"))
+        self.def_lang_Format.setForeground(QColor(set_color("purple")))
         self.xml_format = QTextCharFormat()
-        self.xml_format.setForeground(QColor("darkOrange"))
-        self.xml_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
+        self.xml_format.setForeground(QColor(set_color("darkOrange")))
+        self.xml_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
         self.xml_attr_format = QTextCharFormat()
-        self.xml_attr_format.setForeground(QColor("darkBlue"))
-        self.xml_attr_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
-        self.xml_attr_format.setUnderlineColor("darkOrange")
+        self.xml_attr_format.setForeground(QColor(set_color('darkYellow')))
+        self.xml_attr_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
+        self.xml_attr_format.setUnderlineColor(set_color("darkOrange"))
         self.xml_value_format = QTextCharFormat()
-        self.xml_value_format.setForeground(QColor("darkGreen"))
-        self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
-        self.xml_value_format.setUnderlineColor("darkOrange")
+        self.xml_value_format.setForeground(QColor(set_color("darkGreen")))
+        self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
+        self.xml_value_format.setUnderlineColor(set_color("darkOrange"))
         self.xml_text_format = QTextCharFormat()
-        self.xml_text_format.setForeground(QColor("green"))
-        self.xml_text_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
-        self.xml_text_format.setUnderlineColor("darkOrange")
-        self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SingleUnderline)
-        self.xml_value_format.setUnderlineColor("darkOrange")
+        self.xml_text_format.setForeground(QColor(set_color("darkYellow")))
+        self.xml_text_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
+        self.xml_text_format.setUnderlineColor(set_color("darkOrange"))
+        self.xml_value_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.DotLine)
+        self.xml_value_format.setUnderlineColor(set_color("darkOrange"))
         self.xml_section_regex = QRegularExpression(r'§([^§]+)§')
         self.xml_tag_regex = QRegularExpression(r'</?([\w:-]+)')
         self.xml_attr_regex = QRegularExpression(r'([\w:-]+)=("[^"]*"|\'[^\']*\')')
         self.xml_text_regex = QRegularExpression(r'>([^<]+)<')
         self.error_format = QTextCharFormat()
-        self.error_format.setUnderlineColor(QColor("red"))
-        self.error_format.setForeground(QColor("red"))
+        self.error_format.setUnderlineColor(QColor(set_color("red")))
+        self.error_format.setForeground(QColor(set_color("red")))
         self.error_format.setUnderlineStyle(QTextCharFormat.UnderlineStyle.SpellCheckUnderline)
         self.set_highlighting_rules()
         self.compiled_rules = [(QRegularExpression(pattern), formatting) for pattern, formatting in self.highlighting_rules]

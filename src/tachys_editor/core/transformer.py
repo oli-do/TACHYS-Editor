@@ -115,7 +115,11 @@ class LeidenPlusTransformer(Transformer):
         return xml
 
     def _leiden_line(self, children):
-        items = children[0]
+        if isinstance(children[0], list):
+            items = children[0]
+        else:
+            items = children
+        items = list(filter(None, items))
         return ''.join(items)
 
     # ITEMS

@@ -5,7 +5,7 @@ import pyperclip
 import roman
 import unicodedata
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
-from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QPalette, QFont
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel, QHBoxLayout
 
 from .highlighter import TachysHighlighter
@@ -94,7 +94,15 @@ class FindAndReplaceDialog(QDialog):
 class TachysEditor(QPlainTextEdit):
     def __init__(self):
         super().__init__()
-        self.default_font_size = self.font().pointSize()
+        self.theme = settings_mgr.appearance.theme
+        if self.theme == 'Dark':
+            palette = self.palette()
+            palette.setColor(QPalette.ColorRole.Text, QColor(255, 255, 255))
+            self.setPalette(palette)
+        self.default_font_size = settings_mgr.editor.font_size
+        font = QFont(settings_mgr.editor.font)
+        font.setPointSize(self.default_font_size)
+        self.setFont(font)
         self.line_text = ''
         self.line_break = False
         self.do_debugging = True
@@ -199,7 +207,10 @@ class TachysEditor(QPlainTextEdit):
             extra_selections = []
             if not self.isReadOnly():
                 selection = QTextEdit.ExtraSelection()
-                line_color = QColor('#e8f2fe')
+                if self.theme == 'Dark':
+                    line_color = QColor.fromRgb(0, 0, 30)
+                else:
+                    line_color = QColor('#e8f2fe')
                 selection.format.setBackground(line_color)
                 selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
                 selection.cursor = self.textCursor()
@@ -255,7 +266,10 @@ class TachysEditor(QPlainTextEdit):
 
     def left_widget_paint_event(self, event):
         painter = QPainter(self.left_widget)
-        painter.fillRect(event.rect(), QColor("lightgray"))
+        if self.theme == 'Light':
+            painter.fillRect(event.rect(), QColor("lightgray"))
+        else:
+            painter.fillRect(event.rect(), QColor.fromRgb(100, 100, 100))
         first_block = self.firstVisibleBlock()
         current_number = 0
         blocks_to_check = []
@@ -289,7 +303,10 @@ class TachysEditor(QPlainTextEdit):
                     current_number += 1
                     if block.isVisible() and bottom >= event.rect().top():
                         draw_number = f'[{current_number}]'
-                        painter.setPen(QColor("white"))
+                        if self.theme == 'Light':
+                            painter.setPen(QColor("white"))
+                        else:
+                            painter.setPen(QColor.fromRgb(170, 170, 170))
                         painter.drawText(0, top, self.left_widget.width(), self.fontMetrics().height(),
                                          Qt.AlignmentFlag.AlignCenter, draw_number)
                     lines_lost = re.search(r'lost\.([0-9]+)lin', text)

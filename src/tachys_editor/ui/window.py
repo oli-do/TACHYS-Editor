@@ -5,8 +5,8 @@ from os.path import basename
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtGui import QFont, QTextCursor, QAction, QTextCharFormat, QKeySequence
-from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QApplication
+from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
+from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog
 from PySide6.QtCore import QUrl, Qt
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -16,7 +16,7 @@ from ..core.change_tracker import ChangeTracker
 from ..core.parser import TachysParser
 from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
 from ..core.ai import AIManager
-from ..shared.settings import tracking_dir, settings_mgr, app_name
+from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
 from ..shared.objects import parser
 from .preferences import PreferencesDialog
 
@@ -25,8 +25,9 @@ documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_
 
 
 class TachysEditorWindow(QMainWindow):
-    def __init__(self, screen_height: int):
+    def __init__(self):
         super().__init__()
+        self.resize(window_width, window_height)
         self.webview = QWebEngineView()
         self.parser = TachysParser()
         self.lp_transformer = LeidenPlusTransformer()
@@ -42,12 +43,6 @@ class TachysEditorWindow(QMainWindow):
         # Initialize Editor
         self.editor = TachysEditor()
         self.setCentralWidget(self.editor)
-        editor_font_size = round(0.013 * screen_height)
-        self.editor.default_font_size = editor_font_size
-        settings_mgr.appearance.editor_font_size = editor_font_size
-        self.editor_font = QFont(settings_mgr.editor.font)
-        self.editor_font.setPointSize(round(editor_font_size * settings_mgr.editor.zoom_level))
-        self.editor.setFont(self.editor_font)
         self.file_dialog = QFileDialog()
         self.msg = QMessageBox()
         self.file_path = ''
@@ -63,8 +58,8 @@ class TachysEditorWindow(QMainWindow):
         self.editor.debug_worker.signal_error_info.connect(self.bottom_dock.on_problems_received)
         self.preferences_dialog = PreferencesDialog()
         # New File
-        if settings_mgr.editor.last_file:
-            self.open_file(settings_mgr.editor.last_file)
+        if settings_mgr.editor.last_file_:
+            self.open_file(settings_mgr.editor.last_file_)
         else:
             self.new_file()
 
@@ -425,16 +420,16 @@ class TachysEditorWindow(QMainWindow):
         self.set_window_title('New File')
         self.set_cursor_position(3, 3)
         self.file_path = ''
-        settings_mgr.editor.last_file = ''
+        settings_mgr.editor.last_file_ = ''
         self.set_new_file_id()
 
     def open_file(self, path=None):
         if not path:
-            last_dir_in = settings_mgr.general.last_dir_in
+            last_dir_in = settings_mgr.general.last_dir_in_
             if last_dir_in:
                 self.file_dialog.setDirectory(last_dir_in)
             path, _ = self.file_dialog.getOpenFileName(filter='*.leiden *.xml')
-            settings_mgr.general.last_dir_in = os.path.dirname(path)
+            settings_mgr.general.last_dir_in_ = os.path.dirname(path)
         if os.path.exists(path):
             file_suffix = Path(path).suffix
             self.reset()
@@ -486,11 +481,11 @@ class TachysEditorWindow(QMainWindow):
             self.editor.setPlainText(text)
             self.editor.start_debugging()
             self.set_window_title(path)
-            if path == settings_mgr.editor.last_file:
+            if path == settings_mgr.editor.last_file_:
                 cursor = self.editor.textCursor()
                 cursor.setPosition(settings_mgr.editor.text_cursor_pos)
                 self.editor.setTextCursor(cursor)
-            self.editor.verticalScrollBar().setValue(settings_mgr.editor.scroll_val)
+            self.editor.verticalScrollBar().setValue(settings_mgr.editor.scroll_val_)
             return True
         else:
             return self.new_file()
@@ -515,11 +510,11 @@ class TachysEditorWindow(QMainWindow):
             QMessageBox.warning(self, 'Saving Disabled', 'Due to the current viewing mode, saving is disabled.')
             return False
         if show_dialog or not self.file_path.endswith('.leiden'):
-            last_dir_out = settings_mgr.general.last_dir_out
+            last_dir_out = settings_mgr.general.last_dir_out_
             if last_dir_out:
                 self.file_dialog.setDirectory(last_dir_out)
             path, _ = self.file_dialog.getSaveFileName(filter=file_filter)
-            settings_mgr.general.last_dir_out = os.path.dirname(path)
+            settings_mgr.general.last_dir_out_ = os.path.dirname(path)
         elif file_filter == '*.leiden':
             path = self.file_path
         else:
@@ -537,10 +532,10 @@ class TachysEditorWindow(QMainWindow):
             return False
 
     def update_settings(self):
-        settings_mgr.editor.zoom_level = self.editor.get_zoom_level()
-        settings_mgr.editor.last_file = self.file_path
-        settings_mgr.editor.scroll_val = self.editor.verticalScrollBar().value()
-        settings_mgr.editor.text_cursor_pos = self.editor.textCursor().position()
+        settings_mgr.editor.zoom_level_ = self.editor.get_zoom_level()
+        settings_mgr.editor.last_file_ = self.file_path
+        settings_mgr.editor.scroll_val_ = self.editor.verticalScrollBar().value()
+        settings_mgr.editor.text_cursor_pos_ = self.editor.textCursor().position()
         settings_mgr.write_settings()
 
     def closeEvent(self, event):

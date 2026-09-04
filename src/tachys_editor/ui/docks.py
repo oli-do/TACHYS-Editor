@@ -68,7 +68,8 @@ class BottomDock(QDockWidget):
                 desc = f'Incorrect XML. Make sure to follow the EpiDoc guidelines.'
                 symbol = '⛔'
             else:
-                desc = f'Unknown Problem.'
+                text = problem[4].replace('\n', ' ')
+                desc = f'Unexpected Error. {text}'
                 symbol = '⛔'
             self.add_problem(symbol, line, desc)
 

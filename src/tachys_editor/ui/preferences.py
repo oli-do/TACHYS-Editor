@@ -1,11 +1,10 @@
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QDialog, QTabWidget, QWidget,
     QVBoxLayout, QFormLayout, QCheckBox, QComboBox, QScrollArea,
-    QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QGroupBox, QLineEdit, QMessageBox
+    QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QMessageBox, QStyleFactory
 )
 from ..shared.settings import settings_mgr, font_families
-from dataclasses import fields
+from dataclasses import fields, is_dataclass
 
 class PreferencesDialog(QDialog):
     def __init__(self, parent=None):
@@ -21,12 +20,12 @@ class PreferencesDialog(QDialog):
         self.tabs.addTab(self._create_editor_tab(), "Editor")
         main_layout.addWidget(self.tabs)
         self.button_box = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel |
-            QDialogButtonBox.StandardButton.Apply
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Reset
         )
         self.button_box.accepted.connect(self.accept_settings)
         self.button_box.rejected.connect(self.reject)
-        self.button_box.button(QDialogButtonBox.StandardButton.Apply).clicked.connect(self.save_settings)
+        reset_button = self.button_box.button(QDialogButtonBox.StandardButton.Reset)
+        reset_button.clicked.connect(self.reset)
         main_layout.addWidget(self.button_box)
 
     def _create_general_tab(self) -> QWidget:
@@ -44,12 +43,26 @@ class PreferencesDialog(QDialog):
         tab = QWidget()
         layout = QFormLayout(tab)
 
+        self.window_style_combo = QComboBox()
+        self.window_style_combo.addItems(QStyleFactory.keys())
+        self.window_style_combo.setCurrentText(settings_mgr.appearance.window_style)
+        self.window_style_combo.currentTextChanged.connect(self.set_restart_required_true)
+        self.register(self.window_style_combo, settings_mgr.appearance, 'window_style')
+
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItems(['Auto', 'Light', 'Dark'])
+        self.theme_combo.setCurrentText(settings_mgr.appearance.theme)
+        self.theme_combo.currentTextChanged.connect(self.set_restart_required_true)
+        self.register(self.theme_combo, settings_mgr.appearance, 'theme')
+
         self.ui_font_size_spin = QSpinBox()
         self.ui_font_size_spin.setValue(settings_mgr.appearance.ui_font_size)
         self.ui_font_size_spin.setRange(8, 16)
         self.ui_font_size_spin.valueChanged.connect(self.set_restart_required_true)
         self.register(self.ui_font_size_spin, settings_mgr.appearance, 'ui_font_size')
 
+        layout.addRow("Window Style:", self.window_style_combo)
+        layout.addRow("Theme:", self.theme_combo)
         layout.addRow("UI Font Size:", self.ui_font_size_spin)
         return tab
 
@@ -123,6 +136,24 @@ class PreferencesDialog(QDialog):
             QMessageBox().information(self, "Application Restart Required",
                                     "A restart is required to apply some settings.")
 
+    def update_ui_values(self):
+        for element in self.registered_elements:
+            ui_element, target, attr = element
+            if isinstance(ui_element, QSpinBox):
+                ui_element.setValue(getattr(target, attr))
+            elif isinstance(ui_element, QComboBox):
+                ui_element.setCurrentText(getattr(target, attr))
+            elif isinstance(ui_element, QCheckBox):
+                ui_element.setChecked(getattr(target, attr))
+            elif isinstance(ui_element, QKeySequenceEdit):
+                ui_element.setKeySequence(getattr(target, attr))
+            else:
+                print(f'update_ui_values: {type(ui_element)} is not yet supported.')
+
+    def reset(self):
+        settings_mgr.reset_user_settings()
+        settings_mgr.write_settings()
+        self.update_ui_values()
 
     def accept_settings(self):
         """Called when pressing 'OK'."""
