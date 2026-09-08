@@ -101,11 +101,12 @@ class TachysEditor(QPlainTextEdit):
             self.setPalette(palette)
         self.default_font_size = settings_mgr.editor.font_size
         font = QFont(settings_mgr.editor.font)
-        font.setPointSize(self.default_font_size)
+        font.setPointSize(self.default_font_size * settings_mgr.editor.zoom_level_)
         self.setFont(font)
         self.line_text = ''
         self.line_break = False
         self.do_debugging = True
+        self._enter_pressed = False
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.paste_mgr = PasteManager()
         self.dialog_find_and_replace = FindAndReplaceDialog(self)
@@ -342,6 +343,7 @@ class TachysEditor(QPlainTextEdit):
     def keyPressEvent(self, event):
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
+            self._enter_pressed = True
             self.line_text = self.get_current_line_text().strip()
             cursor.beginEditBlock()
             try:
@@ -397,40 +399,42 @@ class TachysEditor(QPlainTextEdit):
     def keyReleaseEvent(self, event):
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
-            line_text = self.line_text
-            if re.findall(r'^\(?[0-9]+', line_text):
-                line_number = int(re.findall(r'[0-9]+', line_text)[0])
-                if self.line_break:
-                    cursor.insertText(f'{line_number + 1}.- ')
-                    self.line_break = False
-                else:
-                    cursor.insertText(f'{line_number + 1}. ')
-            elif re.findall(r'=>=D>', line_text):
-                try:
-                    last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
-                    div_type = re.findall(r'[a-z]+', last_div)[-1]
-                except IndexError:
-                    return
-                if last_div:
+            if self._enter_pressed:
+                line_text = self.line_text
+                if re.findall(r'^\(?[0-9]+', line_text):
+                    line_number = int(re.findall(r'[0-9]+', line_text)[0])
+                    if self.line_break:
+                        cursor.insertText(f'{line_number + 1}.- ')
+                        self.line_break = False
+                    else:
+                        cursor.insertText(f'{line_number + 1}. ')
+                elif re.findall(r'=>=D>', line_text):
                     try:
-                        div_number = int(re.findall(r'[0-9]+', last_div)[0])
-                        cursor.insertText(f'<D=.{div_number + 1}.{div_type}<=\n1. \n=>=D>')
+                        last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
+                        div_type = re.findall(r'[a-z]+', last_div)[-1]
                     except IndexError:
+                        return
+                    if last_div:
                         try:
-                            div_roman = re.findall(r'\.[ivxlcdm]+\.', last_div)[0]
-                            roman_num = div_roman.replace('.', '')
-                            arabic_num = roman.fromRoman(roman_num)
-                            arabic_num += 1
-                            roman_num = roman.toRoman(arabic_num)
-                            cursor.insertText(f'<D=.{roman_num.lower()}.{div_type}<=\n1. \n=>=D>')
+                            div_number = int(re.findall(r'[0-9]+', last_div)[0])
+                            cursor.insertText(f'<D=.{div_number + 1}.{div_type}<=\n1. \n=>=D>')
                         except IndexError:
-                            cursor.insertText(f'<D=.next.{div_type}<=\n1. \n=>=D>')
-                else:
-                    cursor.insertText(f'<D=.1.fragment<=\n1. \n=>=D>')
-                cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
-                cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, 3)
-                self.setTextCursor(cursor)
-            cursor.endEditBlock()
+                            try:
+                                div_roman = re.findall(r'\.[ivxlcdm]+\.', last_div)[0]
+                                roman_num = div_roman.replace('.', '')
+                                arabic_num = roman.fromRoman(roman_num)
+                                arabic_num += 1
+                                roman_num = roman.toRoman(arabic_num)
+                                cursor.insertText(f'<D=.{roman_num.lower()}.{div_type}<=\n1. \n=>=D>')
+                            except IndexError:
+                                cursor.insertText(f'<D=.next.{div_type}<=\n1. \n=>=D>')
+                    else:
+                        cursor.insertText(f'<D=.1.fragment<=\n1. \n=>=D>')
+                    cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
+                    cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, 3)
+                    self.setTextCursor(cursor)
+                cursor.endEditBlock()
+                self._enter_pressed = False
         elif event.key() == Qt.Key.Key_BracketLeft:
             if self.selected_text:
                 cursor.insertText(self.selected_text + ']')

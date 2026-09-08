@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QMessageBox, QStyleFactory
 )
 from ..shared.settings import settings_mgr, font_families
-from dataclasses import fields, is_dataclass
+from dataclasses import fields
 
 class PreferencesDialog(QDialog):
     def __init__(self, parent=None):
@@ -134,7 +134,7 @@ class PreferencesDialog(QDialog):
         settings_mgr.write_settings()
         if self.restart_required:
             QMessageBox().information(self, "Application Restart Required",
-                                    "A restart is required to apply some settings.")
+                                    "A restart may be required to apply some settings.")
 
     def update_ui_values(self):
         for element in self.registered_elements:

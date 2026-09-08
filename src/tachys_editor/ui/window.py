@@ -483,7 +483,7 @@ class TachysEditorWindow(QMainWindow):
             self.set_window_title(path)
             if path == settings_mgr.editor.last_file_:
                 cursor = self.editor.textCursor()
-                cursor.setPosition(settings_mgr.editor.text_cursor_pos)
+                cursor.setPosition(settings_mgr.editor.text_cursor_pos_)
                 self.editor.setTextCursor(cursor)
             self.editor.verticalScrollBar().setValue(settings_mgr.editor.scroll_val_)
             return True
