@@ -274,7 +274,7 @@ class TestParser(unittest.TestCase):
         lines = ['1. <αβγ2- δεφ|reg|αβγ', '2.- δεφ:>']
         for i in range(len(lines)):
             parser.parse_line(lines[i], i)
-        errors = parser.validate_line_errors(lines, parser.errors)
+        errors, _ = parser.validate_line_errors(lines, parser.errors)
         self.assertFalse(errors)
 
     def test_dclp_63087(self):

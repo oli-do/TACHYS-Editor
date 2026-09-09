@@ -72,6 +72,9 @@ class ParserError:
     - id=1: Unexpected Token
     - id=2: Unexpected EOF
     - id=3: XMLError
+    - id=4: Unexpected EOF div
+    - id=5: Unexpected EOF ab
+    - id=6: Unexpected Document Start
     """
     type: str
     id: int
@@ -153,7 +156,7 @@ class TachysParser:
             print(f'FILE ERRORS\n{self.file_errors}')
         return None
 
-    def validate_line_errors(self, lines: list[str], errors: list[ParserError]):
+    def validate_line_errors(self, lines: list[str], errors: list[ParserError]) -> tuple[list[ParserError], None] | tuple[list[ParserError], list[tuple[int, str]]]:
         """
         Validate line errors by parsing with context.
 
@@ -162,8 +165,9 @@ class TachysParser:
         :param lines: text lines
         :param errors: list of ParserErrors
         """
+        transformed = []
         if not errors:
-            return errors
+            return errors, transformed
         needs_validation = []
         validate = ['\n', '<', '>', ':', '|', '(', ')']
         for error in errors:
@@ -174,7 +178,7 @@ class TachysParser:
             elif error.id == 2:
                 needs_validation.append(error.line)
         if not needs_validation:
-            return errors
+            return errors, transformed
         pairs = []
         multiline_tags = [('<:', ':>'), ('(', ')'), ('"', None)]
         futures = [self.executor.submit(find_multiline_pairs, lines, o, c) for o, c in multiline_tags]
@@ -186,7 +190,7 @@ class TachysParser:
         if pairs:
             merged = [list(pairs[0])]
         else:
-            return errors
+            return errors, transformed
         for current_start, current_end in pairs[1:]:
             last_start, last_end = merged[-1]
             if current_start == last_end:
@@ -205,13 +209,25 @@ class TachysParser:
             if parse:
                 text = '\n'.join(lines[start:end + 1])
                 try:
-                    self.fast_parser.parse('\ue747' + text)
+                    tree = self.fast_parser.parse('\ue747' + text)
                     errors = [error for error in errors if not error.line in group]
+                    if tree:
+                        xml = self.transformer.transform(tree)
+                        xml_lines = list(filter(None, xml.splitlines()))
+                        line_numbers = [n for n in range(start, end + 1)]
+                        if len(xml_lines) == len(line_numbers):
+                            for i in range(len(xml_lines)):
+                                transformed.append((line_numbers[i], xml_lines[i]))
+                        else:
+                            errors.append(ParserError('IndexError', -1, -1, -1, '', None,
+                                                      f'Transformation failed in validate_line_numbers. '
+                                                      f'Reason: len(xml_lines) {len(xml_lines)} != '
+                                                      f'len(line_numbers) {len(line_numbers)}'))
                 except (exceptions.UnexpectedCharacters, exceptions.UnexpectedToken, exceptions.UnexpectedEOF) as e:
                     try:
                         line = group[e.line - 1]
                     except IndexError:
-                        return errors
+                        return errors, transformed
                     errors = [error for error in errors if not error.line == line]
                     if line >= 0:
                         error_name = e.__class__.__name__
@@ -228,9 +244,11 @@ class TachysParser:
                             char = None
                             expected = None
                         errors.append(ParserError(e.__class__.__name__, error_id, line, e.column, char, expected))
-        return errors
+                except lark.exceptions.VisitError as e:
+                    errors.append(ParserError(e.__class__.__name__, -1, group[0], -1, None, None, f'{e.__class__} in {self.__class__}: {e}'))
+        return errors, transformed
 
-    def parse_line(self, line: str, i: int) -> ParserError | None:
+    def parse_line(self, line: str, i: int) -> tuple[ParserError, None] | tuple[ParserError, tuple[int, str]]:
         """
         Parse a single line.
         :param line: Text line to parse.
@@ -239,6 +257,7 @@ class TachysParser:
         """
         line = unicodedata.normalize(self.unicode_normalization, line)
         tree = None
+        transformed = None
         try:
             tree = self.fast_parser.parse('\ue747' + line)
             error = None
@@ -249,13 +268,13 @@ class TachysParser:
         except exceptions.UnexpectedEOF as e:
             error = ParserError(e.__class__.__name__, 2, i, e.column, None, None)
         if tree:
-            has_xml = tree.find_token('hybrid_xml')
-            if has_xml:
-                self.transformer.errors = []
-                try:
-                    self.transformer.transform(tree)
-                except lark.exceptions.VisitError as e:
-                    return ParserError(e.__class__.__name__, -1, i, -1, None, None, f'{e.__class__} in {self.__class__}: {e}')
-                if self.transformer.errors:
-                    error = ParserError('XMLError', 3, i, line.find('§'), None, None)
-        return error
+            self.transformer.errors = []
+            try:
+                xml = self.transformer.transform(tree)
+                xml_line = xml.replace('\n', '')
+                transformed = [(i, xml_line)]
+            except lark.exceptions.VisitError as e:
+                return ParserError(e.__class__.__name__, -1, i, -1, None, None, f'{e.__class__} in {self.__class__}: {e}'), None
+            if self.transformer.errors:
+                error = ParserError('XMLError', 3, i, line.find('§'), None, None)
+        return error, transformed
