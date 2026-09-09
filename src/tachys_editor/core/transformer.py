@@ -115,7 +115,11 @@ class LeidenPlusTransformer(Transformer):
         return xml
 
     def _leiden_line(self, children):
-        items = children[0]
+        if isinstance(children[0], list):
+            items = children[0]
+        else:
+            items = children
+        items = list(filter(None, items))
         return ''.join(items)
 
     # ITEMS
@@ -616,8 +620,9 @@ class EpiDocTransformer:
         self.errors = []
 
     def transform(self, path: str):
+        self.text = ''
+        self.errors = []
         if self.is_valid_tei(path):
-            self.errors = []
             soup = BeautifulSoup(open(path, 'r', encoding='utf-8'), 'lxml-xml')
             main_div = soup.find('div', attrs={'type': 'edition'})
             if main_div:
@@ -629,7 +634,6 @@ class EpiDocTransformer:
                         return ''
                     lines = [line for line in self.text.splitlines() if line is not None and str(line).strip()]
                     self.text = '\n'.join(lines)
-                    print(self.text)
                     self.text = self.text.replace('=>=D>=D>', '=>=D>\n=D>')
                     return self.text
                 else:

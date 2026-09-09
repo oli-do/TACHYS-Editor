@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QTimer
 from .editor import TachysEditor
 from PySide6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QWidget, QVBoxLayout
 from typing import Literal
@@ -7,17 +7,34 @@ from typing import Literal
 class BottomDock(QDockWidget):
     def __init__(self, editor: TachysEditor):
         super().__init__()
+        self.base_title = 'Problems'
         self.editor = editor
-        self.setWindowTitle('Checking for syntax problems...')
         self.setAllowedAreas(Qt.DockWidgetArea.BottomDockWidgetArea)
         self.list_widget = QListWidget(self)
         self.list_widget.itemClicked.connect(self.on_item_clicked)
         self.has_active_problems = True
+        self.spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self.current_frame = 0
+        self.timer_spinner = QTimer(self)
+        self.timer_spinner.timeout.connect(self.update_spinner)
+        self.start_spinner()
         container = QWidget(self)
         layout = QVBoxLayout()
         layout.addWidget(self.list_widget)
         container.setLayout(layout)
         self.setWidget(container)
+
+    def update_spinner(self):
+        frame = self.spinner_frames[self.current_frame]
+        self.setWindowTitle(f"{self.base_title} {frame}")
+        self.current_frame = (self.current_frame + 1) % len(self.spinner_frames)
+
+    def start_spinner(self):
+        self.timer_spinner.start(100)
+
+    def stop_spinner(self):
+        self.timer_spinner.stop()
+        self.setWindowTitle(self.base_title)
 
     def add_problem(self, symbol: Literal['⛔', '⚠️', '🚫'],  line: int, description: str):
         text = f'{symbol} {description} :{line + 1}'
@@ -31,12 +48,13 @@ class BottomDock(QDockWidget):
             self.editor.navigate_to_line(data)
 
     def reset(self):
-        self.setWindowTitle('Checking for syntax problems...')
         self.list_widget.clear()
         self.has_active_problems = True
+        self.start_spinner()
 
     @Slot(list)
     def on_problems_received(self, problems: list[tuple[int, int, int, str, str]]):
+        self.stop_spinner()
         self.setWindowTitle(f'Problems ({len(problems)})')
         if problems:
             self.list_widget.clear()
@@ -48,7 +66,7 @@ class BottomDock(QDockWidget):
                 if not self.isVisible():
                     self.show()
                 self.list_widget.clear()
-                self.list_widget.addItem(QListWidgetItem('✅ Found no problems.'))
+                self.list_widget.addItem(QListWidgetItem('✅ No problems found.'))
                 self.has_active_problems = False
         for problem in problems:
             problem_id = problem[0]
@@ -68,7 +86,8 @@ class BottomDock(QDockWidget):
                 desc = f'Incorrect XML. Make sure to follow the EpiDoc guidelines.'
                 symbol = '⛔'
             else:
-                desc = f'Unknown Problem.'
+                text = problem[4].replace('\n', ' ')
+                desc = f'Unexpected Error. {text}'
                 symbol = '⛔'
             self.add_problem(symbol, line, desc)
 

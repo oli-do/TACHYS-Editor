@@ -5,7 +5,7 @@ import pyperclip
 import roman
 import unicodedata
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
-from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QShortcut, QKeySequence
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QPalette, QFont
 from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel, QHBoxLayout
 
 from .highlighter import TachysHighlighter
@@ -94,16 +94,21 @@ class FindAndReplaceDialog(QDialog):
 class TachysEditor(QPlainTextEdit):
     def __init__(self):
         super().__init__()
-        self.default_font_size = self.font().pointSize()
+        self.theme = settings_mgr.appearance.theme
+        if self.theme == 'Dark':
+            palette = self.palette()
+            palette.setColor(QPalette.ColorRole.Text, QColor(255, 255, 255))
+            self.setPalette(palette)
+        self.default_font_size = settings_mgr.editor.font_size
+        font = QFont(settings_mgr.editor.font)
+        font.setPointSize(self.default_font_size * settings_mgr.editor.zoom_level_)
+        self.setFont(font)
         self.line_text = ''
         self.line_break = False
         self.do_debugging = True
+        self._enter_pressed = False
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.paste_mgr = PasteManager()
-        self.shortcut_paste_greek = QShortcut(QKeySequence("Ctrl+Alt+V"), self)
-        self.shortcut_paste_greek.activated.connect(self.paste_greek)
-        self.shortcut_find = QShortcut(QKeySequence("Ctrl+F"), self)
-        self.shortcut_find.activated.connect(self.find_and_replace)
         self.dialog_find_and_replace = FindAndReplaceDialog(self)
         self.original_paste_text = ''
         self.selected_text = ''
@@ -117,7 +122,6 @@ class TachysEditor(QPlainTextEdit):
         self.debug_timer = QTimer()
         self.debug_timer.setSingleShot(True)
         self.debug_timer.timeout.connect(self.start_debugging)
-        self.debug_delay = settings_mgr.debug_delay
         self.lines_changed = []
         self.document().contentsChange.connect(self.on_contents_change)
         self.cursorPositionChanged.connect(self.on_cursor_position_changed)
@@ -204,7 +208,10 @@ class TachysEditor(QPlainTextEdit):
             extra_selections = []
             if not self.isReadOnly():
                 selection = QTextEdit.ExtraSelection()
-                line_color = QColor('#e8f2fe')
+                if self.theme == 'Dark':
+                    line_color = QColor.fromRgb(0, 0, 30)
+                else:
+                    line_color = QColor('#e8f2fe')
                 selection.format.setBackground(line_color)
                 selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
                 selection.cursor = self.textCursor()
@@ -214,7 +221,7 @@ class TachysEditor(QPlainTextEdit):
             self.current_line_bg_highlight = highlight_line
 
     def request_debugging(self):
-        self.debug_timer.start(self.debug_delay)
+        self.debug_timer.start(settings_mgr.editor.debug_delay)
 
     def start_debugging(self):
         if self.debug_worker.is_running:
@@ -260,7 +267,10 @@ class TachysEditor(QPlainTextEdit):
 
     def left_widget_paint_event(self, event):
         painter = QPainter(self.left_widget)
-        painter.fillRect(event.rect(), QColor("lightgray"))
+        if self.theme == 'Light':
+            painter.fillRect(event.rect(), QColor("lightgray"))
+        else:
+            painter.fillRect(event.rect(), QColor.fromRgb(100, 100, 100))
         first_block = self.firstVisibleBlock()
         current_number = 0
         blocks_to_check = []
@@ -294,7 +304,10 @@ class TachysEditor(QPlainTextEdit):
                     current_number += 1
                     if block.isVisible() and bottom >= event.rect().top():
                         draw_number = f'[{current_number}]'
-                        painter.setPen(QColor("white"))
+                        if self.theme == 'Light':
+                            painter.setPen(QColor("white"))
+                        else:
+                            painter.setPen(QColor.fromRgb(170, 170, 170))
                         painter.drawText(0, top, self.left_widget.width(), self.fontMetrics().height(),
                                          Qt.AlignmentFlag.AlignCenter, draw_number)
                     lines_lost = re.search(r'lost\.([0-9]+)lin', text)
@@ -330,6 +343,7 @@ class TachysEditor(QPlainTextEdit):
     def keyPressEvent(self, event):
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
+            self._enter_pressed = True
             self.line_text = self.get_current_line_text().strip()
             cursor.beginEditBlock()
             try:
@@ -338,79 +352,89 @@ class TachysEditor(QPlainTextEdit):
                     cursor.deletePreviousChar()
             except IndexError:
                 self.line_break = False
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_U):
-            if cursor.hasSelection():
-                replacement = ''
-                for char in cursor.selectedText():
-                    replacement += char + '\u0323'
-                cursor.insertText(replacement)
-            else:
-                cursor.insertText('\u0323')
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_L):
-            if cursor.hasSelection():
-                text = cursor.selectedText()
-                if len(text) > 1:
-                    cursor.insertText('¯' + cursor.selectedText() + '¯')
-                else:
-                    cursor.insertText(text + '\u0304')
-            else:
-                cursor.insertText('\u0304')
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_D):
-            if cursor.hasSelection():
-                cursor.insertText('〚' + cursor.selectedText() + '〛')
-            else:
-                cursor.insertText('〚〛')
-                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
-                self.setTextCursor(cursor)
-        elif (event.modifiers() & Qt.KeyboardModifier.ControlModifier) and (event.key() == Qt.Key.Key_0):
-            if cursor.hasSelection():
-                numeral = format_numerals(cursor.selectedText())
-                cursor.insertText(numeral)
-            else:
-                cursor.insertText('<#=#>')
-                cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 2)
-                self.setTextCursor(cursor)
         elif event.key() == Qt.Key.Key_BracketLeft or event.key() == Qt.Key.Key_ParenLeft or event.key() == Qt.Key.Key_BraceLeft:
             self.selected_text = cursor.selectedText()
         super().keyPressEvent(event)
 
+    def insert_deletion(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            cursor.insertText('〚' + cursor.selectedText() + '〛')
+        else:
+            cursor.insertText('〚〛')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 1)
+            self.setTextCursor(cursor)
+
+    def insert_numeral(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            numeral = format_numerals(cursor.selectedText())
+            cursor.insertText(numeral)
+        else:
+            cursor.insertText('<#=#>')
+            cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, 2)
+            self.setTextCursor(cursor)
+
+    def insert_underdot(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            replacement = ''
+            for char in cursor.selectedText():
+                replacement += char + '\u0323'
+            cursor.insertText(replacement)
+        else:
+            cursor.insertText('\u0323')
+
+    def insert_supralinear_stroke(self):
+        cursor = self.textCursor()
+        if cursor.hasSelection():
+            text = cursor.selectedText()
+            if len(text) > 1:
+                cursor.insertText('¯' + cursor.selectedText() + '¯')
+            else:
+                cursor.insertText(text + '\u0304')
+        else:
+            cursor.insertText('\u0304')
+
     def keyReleaseEvent(self, event):
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
-            line_text = self.line_text
-            if re.findall(r'^\(?[0-9]+', line_text):
-                line_number = int(re.findall(r'[0-9]+', line_text)[0])
-                if self.line_break:
-                    cursor.insertText(f'{line_number + 1}.- ')
-                    self.line_break = False
-                else:
-                    cursor.insertText(f'{line_number + 1}. ')
-            elif re.findall(r'=>=D>', line_text):
-                try:
-                    last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
-                    div_type = re.findall(r'[a-z]+', last_div)[-1]
-                except IndexError:
-                    return
-                if last_div:
+            if self._enter_pressed:
+                line_text = self.line_text
+                if re.findall(r'^\(?[0-9]+', line_text):
+                    line_number = int(re.findall(r'[0-9]+', line_text)[0])
+                    if self.line_break:
+                        cursor.insertText(f'{line_number + 1}.- ')
+                        self.line_break = False
+                    else:
+                        cursor.insertText(f'{line_number + 1}. ')
+                elif re.findall(r'=>=D>', line_text):
                     try:
-                        div_number = int(re.findall(r'[0-9]+', last_div)[0])
-                        cursor.insertText(f'<D=.{div_number + 1}.{div_type}<=\n1. \n=>=D>')
+                        last_div = re.findall(r'<D=\.[0-9a-z]+\.[a-z]+', self.toPlainText())[-1]
+                        div_type = re.findall(r'[a-z]+', last_div)[-1]
                     except IndexError:
+                        return
+                    if last_div:
                         try:
-                            div_roman = re.findall(r'\.[ivxlcdm]+\.', last_div)[0]
-                            roman_num = div_roman.replace('.', '')
-                            arabic_num = roman.fromRoman(roman_num)
-                            arabic_num += 1
-                            roman_num = roman.toRoman(arabic_num)
-                            cursor.insertText(f'<D=.{roman_num.lower()}.{div_type}<=\n1. \n=>=D>')
+                            div_number = int(re.findall(r'[0-9]+', last_div)[0])
+                            cursor.insertText(f'<D=.{div_number + 1}.{div_type}<=\n1. \n=>=D>')
                         except IndexError:
-                            cursor.insertText(f'<D=.next.{div_type}<=\n1. \n=>=D>')
-                else:
-                    cursor.insertText(f'<D=.1.fragment<=\n1. \n=>=D>')
-                cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
-                cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, 3)
-                self.setTextCursor(cursor)
-            cursor.endEditBlock()
+                            try:
+                                div_roman = re.findall(r'\.[ivxlcdm]+\.', last_div)[0]
+                                roman_num = div_roman.replace('.', '')
+                                arabic_num = roman.fromRoman(roman_num)
+                                arabic_num += 1
+                                roman_num = roman.toRoman(arabic_num)
+                                cursor.insertText(f'<D=.{roman_num.lower()}.{div_type}<=\n1. \n=>=D>')
+                            except IndexError:
+                                cursor.insertText(f'<D=.next.{div_type}<=\n1. \n=>=D>')
+                    else:
+                        cursor.insertText(f'<D=.1.fragment<=\n1. \n=>=D>')
+                    cursor.movePosition(QTextCursor.MoveOperation.Up, QTextCursor.MoveMode.MoveAnchor, 1)
+                    cursor.movePosition(QTextCursor.MoveOperation.Right, QTextCursor.MoveMode.MoveAnchor, 3)
+                    self.setTextCursor(cursor)
+                cursor.endEditBlock()
+                self._enter_pressed = False
         elif event.key() == Qt.Key.Key_BracketLeft:
             if self.selected_text:
                 cursor.insertText(self.selected_text + ']')

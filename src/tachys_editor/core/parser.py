@@ -2,6 +2,9 @@ from importlib.resources import files
 from dataclasses import dataclass
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Literal
+
+import lark.exceptions
+
 from ..shared.grammar import build_text_rules
 from .transformer import LeidenPlusTransformer
 
@@ -249,7 +252,10 @@ class TachysParser:
             has_xml = tree.find_token('hybrid_xml')
             if has_xml:
                 self.transformer.errors = []
-                self.transformer.transform(tree)
+                try:
+                    self.transformer.transform(tree)
+                except lark.exceptions.VisitError as e:
+                    return ParserError(e.__class__.__name__, -1, i, -1, None, None, f'{e.__class__} in {self.__class__}: {e}')
                 if self.transformer.errors:
                     error = ParserError('XMLError', 3, i, line.find('§'), None, None)
         return error

@@ -5,8 +5,8 @@ from os.path import basename
 from pathlib import Path
 from typing import Callable
 
-from PySide6.QtGui import QFont, QTextCursor, QAction, QTextCharFormat
-from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QApplication
+from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
+from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog
 from PySide6.QtCore import QUrl, Qt
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -16,8 +16,9 @@ from ..core.change_tracker import ChangeTracker
 from ..core.parser import TachysParser
 from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
 from ..core.ai import AIManager
-from ..shared.settings import tracking_dir, settings_mgr, app_name
+from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
 from ..shared.objects import parser
+from .preferences import PreferencesDialog
 
 from importlib.resources import files
 documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_documentation.html'))
@@ -26,6 +27,7 @@ documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_
 class TachysEditorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.resize(window_width, window_height)
         self.webview = QWebEngineView()
         self.parser = TachysParser()
         self.lp_transformer = LeidenPlusTransformer()
@@ -38,24 +40,9 @@ class TachysEditorWindow(QMainWindow):
         self.imported_change_log = None
         self.original_text = ''
         self.xml_origin = ''
-        # Initialize Window
-        screen = QApplication.primaryScreen()
-        size = screen.size()
-        self.screen_width = size.width()
-        self.screen_height = size.height()
-        self.width = round(0.75 * self.screen_width)
-        self.height = round(0.75 * self.screen_height)
-        window_font = self.font()
-        window_font.setPointSize((round(0.01 * self.screen_height)))
-        self.setFont(window_font)
         # Initialize Editor
         self.editor = TachysEditor()
         self.setCentralWidget(self.editor)
-        self.editor.default_font_size = (round(0.013 * self.screen_height))
-        self.editor_font = QFont(settings_mgr.font)
-        self.editor_font.setPointSize(round(self.editor.default_font_size * settings_mgr.zoom_level))
-        self.editor.setFont(self.editor_font)
-        self.resize(self.width, self.height)
         self.file_dialog = QFileDialog()
         self.msg = QMessageBox()
         self.file_path = ''
@@ -65,13 +52,14 @@ class TachysEditorWindow(QMainWindow):
         self.init_ui()
         self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
         self.action_view_changes = self.get_menu_action(self.menubar, 'View Changes')
-        # Docks
+        # Docks and Dialogs
         self.bottom_dock = BottomDock(self.editor)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.bottom_dock)
         self.editor.debug_worker.signal_error_info.connect(self.bottom_dock.on_problems_received)
+        self.preferences_dialog = PreferencesDialog()
         # New File
-        if settings_mgr.last_file:
-            self.open_file(settings_mgr.last_file)
+        if settings_mgr.editor.last_file_:
+            self.open_file(settings_mgr.editor.last_file_)
         else:
             self.new_file()
 
@@ -92,27 +80,28 @@ class TachysEditorWindow(QMainWindow):
         action.blockSignals(False)
 
     def init_ui(self):
+        shortcuts = settings_mgr.editor.shortcuts
         self.set_cursor_position(3, 3)
         # File Menu
         file_menu = self.menubar.addMenu('File')
-        self.add_menu_action(file_menu, 'New', self.new_file, 'Ctrl+N')
-        self.add_menu_action(file_menu, 'Open', lambda: self.open_file(), 'Ctrl+O')
-        self.add_menu_action(file_menu, 'Save', lambda: self.save_file(False, self.create_leiden_file()), 'Ctrl+S')
-        self.add_menu_action(file_menu, 'Save As', lambda: self.save_file(True, self.create_leiden_file()), 'Ctrl+Alt+S')
+        self.add_menu_action(file_menu, 'New', self.new_file, QKeySequence.StandardKey.New)
+        self.add_menu_action(file_menu, 'Open', lambda: self.open_file(), QKeySequence.StandardKey.Open)
+        self.add_menu_action(file_menu, 'Save', lambda: self.save_file(False, self.create_leiden_file()), QKeySequence.StandardKey.Save)
+        self.add_menu_action(file_menu, 'Save As', lambda: self.save_file(True, self.create_leiden_file()), QKeySequence.StandardKey.SaveAs)
         self.add_menu_action(file_menu, 'Export to XML', self.export_to_xml, 'Ctrl+E')
-        self.add_menu_action(file_menu, 'Export to TXT', self.export_to_txt, 'Ctrl+Alt+E')
+        self.add_menu_action(file_menu, 'Export to TXT', self.export_to_txt, 'Ctrl+Shift+E')
         # Edit Menu
         edit_menu = self.menubar.addMenu('Edit')
         edit_menu.setToolTipsVisible(True)
-        self.add_menu_action(edit_menu, 'Undo\tCtrl+Z', self.editor.undo)
-        self.add_menu_action(edit_menu, 'Redo\tCtrl+Y', self.editor.redo)
+        self.add_menu_action(edit_menu, 'Undo', self.editor.undo, QKeySequence.StandardKey.Undo)
+        self.add_menu_action(edit_menu, 'Redo', self.editor.redo, QKeySequence.StandardKey.Redo)
         QMenu.addSeparator(edit_menu)
-        self.add_menu_action(edit_menu, 'Cut\tCtrl+X', self.editor.cut)
-        self.add_menu_action(edit_menu, 'Copy\tCtrl+C', self.editor.copy)
-        self.add_menu_action(edit_menu, 'Paste\tCtrl+V', self.editor.paste)
-        self.add_menu_action(edit_menu, 'IntelliPaste\tCtrl+Alt+V', self.editor.paste_greek, tooltip='Intelligent Pasting featuring automatic conversions for Greek text')
+        self.add_menu_action(edit_menu, 'Cut', self.editor.cut, QKeySequence.StandardKey.Cut)
+        self.add_menu_action(edit_menu, 'Copy', self.editor.copy, QKeySequence.StandardKey.Copy)
+        self.add_menu_action(edit_menu, 'Paste', self.editor.paste, QKeySequence.StandardKey.Paste)
+        self.add_menu_action(edit_menu, 'IntelliPaste', self.editor.paste_greek, shortcuts.intelliPaste, tooltip='Intelligent Pasting featuring automatic conversions for Greek text')
         QMenu.addSeparator(edit_menu)
-        self.add_menu_action(edit_menu, 'Find and Replace\tCtrl+F', self.editor.find_and_replace)
+        self.add_menu_action(edit_menu, 'Find and Replace', self.editor.find_and_replace, QKeySequence.StandardKey.Find)
         # Insert Menu
         insert_menu = self.menubar.addMenu('Insert')
         submenu_apparatus = QMenu('Apparatus', self)
@@ -226,22 +215,25 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(submenu_langs, 'Coptic in Greek script', lambda: self.insert_str('~|{text}|~cop-Grek '))
         insert_menu.addMenu(submenu_langs)
         QMenu.addSeparator(insert_menu)
-        self.add_menu_action(insert_menu, 'Deletion\tCtrl+D', lambda: self.insert_str('〚〛'))
-        self.add_menu_action(insert_menu, 'Numeral\tCtrl+0', lambda: self.insert_str('<#=#>'))
-        self.add_menu_action(insert_menu, 'Paragraphos\tCtrl+P', lambda: self.insert_str('----'), 'Ctrl+P')
-        self.add_menu_action(insert_menu, 'Forked Paragraphos\tCtrl+Alt+P', lambda: self.insert_str('>---'), 'Ctrl+Alt+P')
-        self.add_menu_action(insert_menu, 'Supralinear Stroke\tCtrl+L', lambda: self.insert_str('\u0304'))
-        self.add_menu_action(insert_menu, 'Supralinear Stroke alt.\tCtrl+Alt+L', lambda: self.insert_str('¯'), 'Ctrl+Alt+L')
-        self.add_menu_action(insert_menu, 'Handshift\tCtrl+H', lambda: self.insert_str('$m2 '),'Ctrl+H')
-        self.add_menu_action(insert_menu, 'Underdot\tCtrl+U', lambda: self.insert_str('\u0323'))
+        self.add_menu_action(insert_menu, 'Deletion', self.editor.insert_deletion, shortcuts.deletion)
+        self.add_menu_action(insert_menu, 'Numeral', self.editor.insert_numeral, shortcuts.numeral)
+        self.add_menu_action(insert_menu, 'Paragraphos', lambda: self.insert_str('----'), shortcuts.paragraphos)
+        self.add_menu_action(insert_menu, 'Forked Paragraphos', lambda: self.insert_str('>---'), shortcuts.forked_paragraphos)
+        self.add_menu_action(insert_menu, 'Supralinear Stroke', self.editor.insert_supralinear_stroke, shortcuts.supralinear_stroke)
+        self.add_menu_action(insert_menu, 'Supralinear Stroke alt.', lambda: self.insert_str('¯'), shortcuts.supralinear_stroke_alt)
+        self.add_menu_action(insert_menu, 'Handshift', lambda: self.insert_str('$m2 '), shortcuts.handshift)
+        self.add_menu_action(insert_menu, 'Underdot', self.editor.insert_underdot, shortcuts.underdot)
         # View Menu
         view_menu = self.menuBar().addMenu('View')
         submenu_zoom = QMenu('Zoom')
         submenu_zoom.setToolTipsVisible(True)
-        self.add_menu_action(submenu_zoom, 'Zoom In', self.editor.zoomIn, 'Ctrl++', tooltip='Alternatively: Ctrl+Mousewheel Up')
-        self.add_menu_action(submenu_zoom, 'Zoom Out', self.editor.zoomOut, 'Ctrl+-', tooltip='Alternatively: Ctrl+Mousewheel Down')
+        self.add_menu_action(submenu_zoom, 'Zoom In', self.editor.zoomIn, shortcuts.zoom_in, tooltip='Alternatively: Ctrl+Mousewheel Up')
+        self.add_menu_action(submenu_zoom, 'Zoom Out', self.editor.zoomOut, shortcuts.zoom_out, tooltip='Alternatively: Ctrl+Mousewheel Down')
         view_menu.addMenu(submenu_zoom)
         self.add_menu_action(view_menu, 'Problems', lambda: self.bottom_dock.setVisible(True))
+        # Settings Menu
+        settings_menu = self.menuBar().addMenu('Settings')
+        self.add_menu_action(settings_menu, 'Preferences', lambda: self.preferences_dialog.show())
         # Changes Menu
         changes_menu = self.menubar.addMenu('Changes')
         changes_menu.setToolTipsVisible(True)
@@ -371,7 +363,7 @@ class TachysEditorWindow(QMainWindow):
         else:
             self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
 
-    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut: str = None, tooltip: str = None):
+    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut = None, tooltip: str = None):
         action = QAction(action_name, self)
         if shortcut:
             action.setShortcut(shortcut)
@@ -424,16 +416,20 @@ class TachysEditorWindow(QMainWindow):
 
     def new_file(self):
         self.reset()
-        self.editor.appendPlainText('<S=.grc\n<D=.1.fragment<=\n1. \n=>=D>')
+        self.editor.appendPlainText(f'<S=.{settings_mgr.editor.default_language}\n<D=.1.fragment<=\n1. \n=>=D>')
         self.set_window_title('New File')
         self.set_cursor_position(3, 3)
         self.file_path = ''
-        settings_mgr.last_file = ''
+        settings_mgr.editor.last_file_ = ''
         self.set_new_file_id()
 
     def open_file(self, path=None):
         if not path:
+            last_dir_in = settings_mgr.general.last_dir_in_
+            if last_dir_in:
+                self.file_dialog.setDirectory(last_dir_in)
             path, _ = self.file_dialog.getOpenFileName(filter='*.leiden *.xml')
+            settings_mgr.general.last_dir_in_ = os.path.dirname(path)
         if os.path.exists(path):
             file_suffix = Path(path).suffix
             self.reset()
@@ -485,11 +481,11 @@ class TachysEditorWindow(QMainWindow):
             self.editor.setPlainText(text)
             self.editor.start_debugging()
             self.set_window_title(path)
-            if path == settings_mgr.last_file:
+            if path == settings_mgr.editor.last_file_:
                 cursor = self.editor.textCursor()
-                cursor.setPosition(settings_mgr.text_cursor_pos)
+                cursor.setPosition(settings_mgr.editor.text_cursor_pos_)
                 self.editor.setTextCursor(cursor)
-            self.editor.verticalScrollBar().setValue(settings_mgr.scroll_val)
+            self.editor.verticalScrollBar().setValue(settings_mgr.editor.scroll_val_)
             return True
         else:
             return self.new_file()
@@ -514,7 +510,11 @@ class TachysEditorWindow(QMainWindow):
             QMessageBox.warning(self, 'Saving Disabled', 'Due to the current viewing mode, saving is disabled.')
             return False
         if show_dialog or not self.file_path.endswith('.leiden'):
+            last_dir_out = settings_mgr.general.last_dir_out_
+            if last_dir_out:
+                self.file_dialog.setDirectory(last_dir_out)
             path, _ = self.file_dialog.getSaveFileName(filter=file_filter)
+            settings_mgr.general.last_dir_out_ = os.path.dirname(path)
         elif file_filter == '*.leiden':
             path = self.file_path
         else:
@@ -532,13 +532,13 @@ class TachysEditorWindow(QMainWindow):
             return False
 
     def update_settings(self):
-        settings_mgr.zoom_level = self.editor.get_zoom_level()
-        settings_mgr.last_file = self.file_path
-        settings_mgr.scroll_val = self.editor.verticalScrollBar().value()
-        settings_mgr.text_cursor_pos = self.editor.textCursor().position()
+        settings_mgr.editor.zoom_level_ = self.editor.get_zoom_level()
+        settings_mgr.editor.last_file_ = self.file_path
+        settings_mgr.editor.scroll_val_ = self.editor.verticalScrollBar().value()
+        settings_mgr.editor.text_cursor_pos_ = self.editor.textCursor().position()
         settings_mgr.write_settings()
 
     def closeEvent(self, event):
         self.update_settings()
-        if self.file_path.endswith('.leiden'):
+        if self.file_path.endswith('.leiden') and settings_mgr.general.auto_save_on_exit:
             self.save_file(False, self.create_leiden_file())

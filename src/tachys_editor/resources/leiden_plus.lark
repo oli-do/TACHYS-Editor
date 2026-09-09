@@ -4,7 +4,7 @@
 file_start: default_language (superdiv | div)+
 default_language: "<S=." LANG
 superdiv: "\n" div_start (superdiv | div)+ "\n" DIV_CLOSE
-div: "\n" div_start ["\n"] TEXTBLOCK_OPEN item+ "\n" TEXTBLOCK_CLOSE ["\n"] DIV_CLOSE
+div: ["\n" div_start] ["\n"] TEXTBLOCK_OPEN item+ "\n" TEXTBLOCK_CLOSE ["\n"] [DIV_CLOSE]
 div_start: "<D=." (NAME_OR_NUMBER | RECTO | VERSO) ["." SUBTYPE] [".#" CORRESP]
 
 _LINE_START: NEWLINE | "\ue747"
