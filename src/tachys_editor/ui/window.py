@@ -7,7 +7,7 @@ from typing import Callable
 
 from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtCore import QUrl, Qt, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from .editor import TachysEditor
@@ -17,7 +17,6 @@ from ..core.parser import TachysParser
 from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
 from ..core.ai import AIManager
 from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
-from ..shared.objects import parser
 from .preferences import PreferencesDialog
 
 from importlib.resources import files
@@ -35,6 +34,11 @@ class TachysEditorWindow(QMainWindow):
         self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
+        self.export_timer = QTimer()
+        self.msg_awaiting_export = QMessageBox()
+        self.msg_awaiting_export.setWindowTitle("Preparing your XML Export")
+        self.msg_awaiting_export.setText("Please wait while your Leiden+ code is being transformed...")
+        self.msg_awaiting_export.setStandardButtons(QMessageBox.StandardButton.NoButton)
         # Settings
         self.saving_enabled = True
         self.imported_change_log = None
@@ -348,20 +352,36 @@ class TachysEditorWindow(QMainWindow):
         self.save_file(True, text, '*.txt')
 
     def export_to_xml(self):
-        text = self.editor.toPlainText()
-        print('shared parser lang:', parser.lang)
-        self.parser.set_language(parser.lang)
-        self.parser.errors = []
-        tree = self.parser.parse_full(text)
-        if tree:
-            inner_body = self.lp_transformer.transform(tree)
-            if self.xml_origin:
-                xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
-            else:
-                xml = self.tei_builder.build_placeholder(inner_body)
+        if self.editor.debug_worker.is_running or self.editor.debug_timer.isActive():
+            self.export_timer.singleShot(500, self.export_to_xml)
+            if not self.msg_awaiting_export.isVisible():
+                self.msg_awaiting_export.setVisible(True)
+            return
+        self.msg_awaiting_export.setVisible(False)
+        if self.editor.debug_worker.errors:
+            QMessageBox.critical(self, 'Unhandled Leiden+ Errors', 'There are unhandled Leiden+ errors. '
+                                                                   'Export aborted.')
+            return
+        xml_lines = [line[1] for line in sorted(self.editor.debug_worker.xml_lines.items())]
+        inner_body = '\n'.join(xml_lines) + '</div>'
+        if self.xml_origin:
+            xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
+        else:
+            xml = self.tei_builder.build_placeholder(inner_body)
+        if self.lp_transformer.is_valid_tei(xml) is not None:
             self.save_file(True, xml, '*.xml')
         else:
-            self.msg.warning(self, 'Export Error', 'There are unhandled errors in the Leiden+ code.')
+            msg = QMessageBox()
+            msg.setWindowTitle('Export Failed')
+            error = self.lp_transformer.errors[0]
+            if 'tag mismatch' in error:
+                msg.setText('XML Syntax Error.\n\nThis was likely caused by malformed Leiden+ code that could not be '
+                            'recognized as an error. Check your Leiden+ syntax.')
+            else:
+                msg.setText('XML Syntax Error.\n\nThis was likely caused by a LeidenPlusTransformer bug.')
+            msg.setDetailedText(error)
+            msg.setIcon(QMessageBox.Icon.Critical)
+            msg.exec()
 
     def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut = None, tooltip: str = None):
         action = QAction(action_name, self)

@@ -50,10 +50,16 @@ class TEIBuilder:
     intro = """<?xml version="1.0" encoding="UTF-8"?>
 <?xml-model href="https://epidoc.stoa.org/schema/8.23/tei-epidoc.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>"""
 
+    commentary = """<div type="commentary" subtype="frontmatter" xml:space="preserve">
+                        <p>
+                            This text has been digitally edited with TACHYS Editor.
+                        </p>
+</div>"""
+
     def build_placeholder(self, inner_body: str):
         body = inner_xml('<body>', [inner_body], '</body>')
         text = inner_xml('<text>', [body], '</text>')
-        tei = inner_xml(f'{self.intro}\n<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en">', [self.default_tei_header, text], '</TEI>')
+        tei = inner_xml(f'{self.intro}\n<TEI xmlns="http://www.tei-c.org/ns/1.0" xml:lang="en">', [self.commentary, self.default_tei_header, text], '</TEI>')
         return tei
 
     def build_from_origin(self, inner_body: str, xml_origin: str):
@@ -293,8 +299,9 @@ class LeidenPlusTransformer(Transformer):
             char = f'<unclear>{char}</unclear>'
         return f'<hi rend="supraline">{char}</hi>'
 
-    def lines_lost(self, children):
-        return inner_xml('<gap reason="lost"', children, '/>')
+    @v_args(inline=True)
+    def lines_lost(self, precision, quantity, unit, cert_match):
+        return inner_xml('<gap reason="lost"', [precision, quantity, unit], '/>') + str(cert_match)
 
     def illegible(self, children):
         precision = children[0]
@@ -576,9 +583,13 @@ class LeidenPlusTransformer(Transformer):
             root = etree.fromstring(xml.encode('utf-8'))
             xml_doc = etree.ElementTree(root)
         except etree.XMLSyntaxError as e:
-            self.errors.append(f'XML Syntax Error: {e}')
+            try:
+                line = e.position[0] - 1
+                self.errors.append(f'XML Syntax Error in "{xml.splitlines()[line]}": {e}')
+            except IndexError:
+                self.errors.append(f'XML Syntax Error: {e}')
             return None
-        if rng.validate(xml_doc):
+        if rng.validate(xml_doc) is not None:
             return root
         else:
             for error in rng.error_log:

@@ -194,6 +194,15 @@ class TachysHighlighter(QSyntaxHighlighter):
                     elif error_id == 3:
                         format_count = len(text) - index
                         start = column
+                    elif error_id == 4:
+                        format_count = len(text) - index
+                        start = column
+                    elif error_id == 5:
+                        format_count = len(text) - index
+                        start = column
+                    elif error_id == 6:
+                        format_count = len(text) - index
+                        start = column
                     else:
                         break
                     self.setFormat(start, format_count + 1, self.error_format)
