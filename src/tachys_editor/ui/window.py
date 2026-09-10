@@ -37,7 +37,7 @@ class TachysEditorWindow(QMainWindow):
         self.export_timer = QTimer()
         self.msg_awaiting_export = QMessageBox()
         self.msg_awaiting_export.setWindowTitle("Preparing your XML Export")
-        self.msg_awaiting_export.setText("Please wait while your XML export is being prepared...")
+        self.msg_awaiting_export.setText("Please wait while your Leiden+ code is being transformed...")
         self.msg_awaiting_export.setStandardButtons(QMessageBox.StandardButton.NoButton)
         # Settings
         self.saving_enabled = True
@@ -352,7 +352,7 @@ class TachysEditorWindow(QMainWindow):
         self.save_file(True, text, '*.txt')
 
     def export_to_xml(self):
-        if self.editor.debug_worker.is_running:
+        if self.editor.debug_worker.is_running or self.editor.debug_timer.isActive():
             self.export_timer.singleShot(500, self.export_to_xml)
             if not self.msg_awaiting_export.isVisible():
                 self.msg_awaiting_export.setVisible(True)
@@ -362,24 +362,24 @@ class TachysEditorWindow(QMainWindow):
             QMessageBox.critical(self, 'Unhandled Leiden+ Errors', 'There are unhandled Leiden+ errors. '
                                                                    'Export aborted.')
             return
-        xml_lines = sorted(self.editor.debug_worker.xml_lines.items())
-        inner_body = [line[1] for line in xml_lines]
-        inner_body = '\n'.join(inner_body) + '</div>'
-        print(inner_body)
+        xml_lines = [line[1] for line in sorted(self.editor.debug_worker.xml_lines.items())]
+        inner_body = '\n'.join(xml_lines) + '</div>'
         if self.xml_origin:
             xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
         else:
             xml = self.tei_builder.build_placeholder(inner_body)
-        print(xml)
         if self.lp_transformer.is_valid_tei(xml) is not None:
             self.save_file(True, xml, '*.xml')
         else:
             msg = QMessageBox()
             msg.setWindowTitle('Export Failed')
-            msg.setDetailedText(self.lp_transformer.errors[0])
-            msg.setText('Incorrect XML Syntax. This is likely due to malformed Leiden+ code not yet recognized by '
-                        'TACHYS, such as closed Document Divisions (=D>) or Text Blocks (=>) that do not have a matching '
-                        'opening block (<D= / <=).')
+            error = self.lp_transformer.errors[0]
+            if 'tag mismatch' in error:
+                msg.setText('XML Syntax Error.\n\nThis was likely caused by malformed Leiden+ code that could not be '
+                            'recognized as an error. Check your Leiden+ syntax.')
+            else:
+                msg.setText('XML Syntax Error.\n\nThis was likely caused by a LeidenPlusTransformer bug.')
+            msg.setDetailedText(error)
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.exec()
 

@@ -299,8 +299,9 @@ class LeidenPlusTransformer(Transformer):
             char = f'<unclear>{char}</unclear>'
         return f'<hi rend="supraline">{char}</hi>'
 
-    def lines_lost(self, children):
-        return inner_xml('<gap reason="lost"', children, '/>')
+    @v_args(inline=True)
+    def lines_lost(self, precision, quantity, unit, cert_match):
+        return inner_xml('<gap reason="lost"', [precision, quantity, unit], '/>') + str(cert_match)
 
     def illegible(self, children):
         precision = children[0]
@@ -582,7 +583,11 @@ class LeidenPlusTransformer(Transformer):
             root = etree.fromstring(xml.encode('utf-8'))
             xml_doc = etree.ElementTree(root)
         except etree.XMLSyntaxError as e:
-            self.errors.append(f'XML Syntax Error: {e}')
+            try:
+                line = e.position[0] - 1
+                self.errors.append(f'XML Syntax Error in "{xml.splitlines()[line]}": {e}')
+            except IndexError:
+                self.errors.append(f'XML Syntax Error: {e}')
             return None
         if rng.validate(xml_doc) is not None:
             return root
