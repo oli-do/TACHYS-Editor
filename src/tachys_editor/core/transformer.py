@@ -101,10 +101,10 @@ class LeidenPlusTransformer(Transformer):
             corresp_str = f' corresp="#{corresp}"'
         else:
             corresp_str = ''
-        if n == 'r' or n == 'v':
-           subtype_str = ''
+        if not subtype and (n == 'r' or n == 'v'):
+            subtype_str = ''
         else:
-           subtype_str = f' subtype="{subtype}"'
+            subtype_str = f' subtype="{subtype}"'
         xml = f'\n<div n="{n}"{subtype_str} type="textpart"{corresp_str}>'
         return xml
 
@@ -643,7 +643,7 @@ class EpiDocTransformer:
                         self.text += self.transform_node(main_div)
                     except EssentialAttributeMissingException:
                         return ''
-                    lines = [line for line in self.text.splitlines() if line is not None and str(line).strip()]
+                    lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
                     self.text = '\n'.join(lines)
                     self.text = self.text.replace('=>=D>=D>', '=>=D>\n=D>')
                     return self.text
@@ -662,7 +662,7 @@ class EpiDocTransformer:
         except etree.XMLSyntaxError as e:
             self.errors.append(f'XML Syntax Error: {e}')
             return False
-        if rng.validate(xml_doc):
+        if rng.validate(xml_doc) is not None:
             return True
         else:
             for error in rng.error_log:
@@ -708,7 +708,7 @@ class EpiDocTransformer:
 
     def div(self, node: Tag):
         attrs = node.attrs
-        div_type = attrs['type']
+        div_type = str(attrs['type'])
         if div_type == 'edition':
             try:
                 lang = attrs['xml:lang']
@@ -718,7 +718,7 @@ class EpiDocTransformer:
         elif div_type == 'textpart':
             n = attrs['n']
             if 'subtype' in attrs:
-                subtype = '.' + attrs['subtype']
+                subtype = '.' + str(attrs['subtype'])
             else:
                 subtype = ''
             return f'\n<D=.{n}{subtype}', '=D>'
@@ -806,7 +806,7 @@ class EpiDocTransformer:
     def add(self, node: Tag):
         attrs = node.attrs
         try:
-            place = attrs['place']
+            place = str(attrs['place'])
         except KeyError:
             return self.essential_attribute_missing(node, 'place')
         if 'cert' in attrs:
@@ -825,7 +825,7 @@ class EpiDocTransformer:
             return '||interlin:', f'{cert_low}||'
         elif place == 'margin':
             try:
-                rend = attrs['rend']
+                rend = str(attrs['rend'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'rend')
             if rend == 'sling':
@@ -843,7 +843,7 @@ class EpiDocTransformer:
 
     def milestone(self, node: Tag):
         try:
-            rend = node.attrs['rend']
+            rend = str(node.attrs['rend'])
         except KeyError:
             return self.essential_attribute_missing(node, 'rend')
         if rend == 'box':
@@ -867,7 +867,7 @@ class EpiDocTransformer:
         hi_children = [hi.attrs['rend'] for hi in node.children if isinstance(hi, Tag) and hi.name == 'hi']
         map_diacriticals = {'acute': '´', 'grave': '`'}
         try:
-            additional_diacritics = ''.join([map_diacriticals[child] for child in hi_children])
+            additional_diacritics = ''.join([map_diacriticals[str(child)] for child in hi_children])
         except KeyError:
             return '', ''
         if rend == 'diaeresis':
@@ -909,7 +909,7 @@ class EpiDocTransformer:
 
     def hi(self, node: Tag):
         try:
-            rend = node.attrs['rend']
+            rend = str(node.attrs['rend'])
         except KeyError:
             return self.essential_attribute_missing(node, 'rend')
         text = node.get_text()
@@ -982,7 +982,7 @@ class EpiDocTransformer:
 
     def gap(self, node: Tag):
         attrs = node.attrs
-        reason = attrs['reason']
+        reason = str(attrs['reason'])
         if reason == 'lost':
             gap_start = '['
             gap_end = ']'
@@ -1033,7 +1033,7 @@ class EpiDocTransformer:
 
     def supplied(self, node: Tag):
         attrs = node.attrs
-        reason = attrs['reason']
+        reason = str(attrs['reason'])
         if 'cert' in attrs:
             cert_low = '(?)'
         else:
@@ -1059,7 +1059,7 @@ class EpiDocTransformer:
 
     def deletion(self, node: Tag):
         try:
-            rend = node.attrs['rend']
+            rend = str(node.attrs['rend'])
         except KeyError:
             return self.essential_attribute_missing(node, 'rend')
         if rend == 'erasure':
@@ -1117,17 +1117,19 @@ class EpiDocTransformer:
         else:
             cert_low = ''
         if 'xml:lang' in attrs:
-            xml_lang = '=' + attrs['xml:lang']
+            xml_lang = '=' + str(attrs['xml:lang'])
         else:
             xml_lang = ''
         sibling = node.next_sibling
         if sibling is None:
             return '', f'{cert_low}{xml_lang}'
-        else:
+        elif isinstance(sibling, Tag):
             if sibling.name == 'reg':
                 return '', f'{cert_low}{xml_lang}|'
             else:
                 return '', f'{cert_low}{xml_lang}'
+        else:
+            return '', f'{cert_low}{xml_lang}'
 
     @staticmethod
     def orig(node: Tag):
@@ -1144,7 +1146,7 @@ class EpiDocTransformer:
     @staticmethod
     def lem(node: Tag):
         if 'resp' in node.attrs:
-            resp = '=' + node.attrs['resp']
+            resp = '=' + str(node.attrs['resp'])
         else:
             resp = ''
         parent = node.parent
@@ -1166,17 +1168,19 @@ class EpiDocTransformer:
     @staticmethod
     def rdg(node: Tag):
         if 'resp' in node.attrs:
-            resp = '=' + node.attrs['resp']
+            resp = '=' + str(node.attrs['resp'])
         else:
             resp = ''
         sibling = node.next_sibling
         if sibling is None:
             return '', f'{resp}'
-        else:
+        elif isinstance(sibling, Tag):
             if sibling.name == 'rdg':
                 return '', f'{resp}|'
             else:
                 return '', f'{resp}'
+        else:
+            return '', f'{resp}'
 
     @staticmethod
     def subst(node: Tag):
@@ -1201,7 +1205,7 @@ class EpiDocTransformer:
         else:
             rend = ""
         if 'value' in node.attrs:
-            value = '=' + node.attrs['value']
+            value = '=' + str(node.attrs['value'])
         else:
             value = '='
         return '<#', f'{rend}{value}#>'
