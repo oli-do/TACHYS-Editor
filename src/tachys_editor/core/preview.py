@@ -1,4 +1,5 @@
 import html
+import webbrowser
 
 from transformer import EpiDocTransformer, EssentialAttributeMissingException
 from bs4 import BeautifulSoup
@@ -26,7 +27,22 @@ class EpiDoc2HTML(EpiDocTransformer):
                     apparatus = self.generate_apparatus() if self.apparatus_dict else ''
                     lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
                     self.text = '\n'.join(lines) + apparatus
-                    html_output = '<!DOCTYPE html><body><div style="font-family:IFAO-Grec Unicode; font-size:11px; width:21cm; height:29.7cm; border:2px solid black; overflow-y:scroll;">' + self.text + '</div></body></html>'
+                    title = '<h2 style="text-align:center;">TITLE</h2>'
+                    commentary = '<p>This text has been digitally edited with TACHYS Editor.</p>\n'
+                    html_output = (
+                                      '<!DOCTYPE html><html style="margin:0; padding:0; height:100%; width:100%; ">'
+                                      '<body style="margin:0; padding:0; height:100%; width:100%; display:grid; place-items:center; background:#f0f0f0;">'
+                                      '<div style="'
+                                      'font-family:IFAO-Grec Unicode; '
+                                      'font-size:11px; '
+                                      'width:21cm; '
+                                      'border:2px solid black; '
+                                      'transform: scale(min(100vw / 21cm, 100vh / 29.7cm)); '
+                                      'transform-origin: center; '
+                                      'background: white; '
+                                      'padding: 2.54cm; '
+                                      'box-sizing: border-box; '
+                                      '">') + title + commentary + self.text + '</div></body></html>'
                     return html_output
                 else:
                     return ''
@@ -42,6 +58,26 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             self.apparatus_dict[self.line_name] = [text]
 
+    def transform_node(self, node: Tag):
+        print('transform_node', node)
+        contents = node.contents
+        name = node.name
+        start, end = f'<{node.name}>', f'</{node.name}>'
+        if name == 'del':
+            name = 'deletion'
+        if hasattr(self, name):
+            function = getattr(self, name)
+            if name == 'unclear':
+                return function(node)
+            start, end = function(node)
+        print(f'start {start}, end {end}, node {node}')
+        if contents:
+            print('start', start, 'end', end)
+            return f'{start}{self.convert(node)}{end}'
+        else:
+            print('start', start, 'end', end)
+            return f'{start}{end}'
+
     def convert(self, node: Tag) -> str:
         global apparatus_id
         global resp
@@ -54,7 +90,10 @@ class EpiDoc2HTML(EpiDocTransformer):
                 result.append(str(content))
         output = ''.join(result)
         if name in ['reg', 'corr']:
-                self.add_to_apparatus(f'l. {output}')
+                if 'cert' in node.attrs:
+                    self.add_to_apparatus(f'l. {output}?')
+                else:
+                    self.add_to_apparatus(f'l. {output}')
                 return ''
         elif name == 'rdg':
             node_parent = node.parent
@@ -81,6 +120,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                     else:
                         supraline_text += c
                 return supraline_text
+        print('convert returns', output)
         return output
 
     def generate_apparatus(self):
@@ -320,7 +360,6 @@ class EpiDoc2HTML(EpiDocTransformer):
             rend = str(node.attrs['rend'])
         except KeyError:
             return self.essential_attribute_missing(node, 'rend')
-        text = node.get_text()
         if rend == 'tall':
             return '~||', '||~tall'
         elif rend == 'superscript':
@@ -519,25 +558,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     @staticmethod
     def reg(node: Tag):
-        attrs = node.attrs
-        if 'cert' in attrs:
-            cert_low = '?'
-        else:
-            cert_low = ''
-        if 'xml:lang' in attrs:
-            xml_lang = '=' + str(attrs['xml:lang'])
-        else:
-            xml_lang = ''
-        sibling = node.next_sibling
-        if sibling is None:
-            return '', f'{cert_low}{xml_lang}'
-        elif isinstance(sibling, Tag):
-            if sibling.name == 'reg':
-                return '', f'{cert_low}{xml_lang}|'
-            else:
-                return '', f'{cert_low}{xml_lang}'
-        else:
-            return '', f'{cert_low}{xml_lang}'
+        return '', ''
 
     @staticmethod
     def orig(node: Tag):
@@ -573,11 +594,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     @staticmethod
     def corr(node: Tag):
-        if 'cert' in node.attrs:
-            cert_low = '?'
-        else:
-            cert_low = ''
-        return '', f'{cert_low}'
+        return '', ''
 
     @staticmethod
     def sic(node: Tag):
@@ -625,6 +642,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 if __name__ == '__main__':
     tr = EpiDoc2HTML()
     html_out = (tr.transform('C:/Users/arnon/Desktop/test.xml'))
-    print(html_out)
-    with open('C:/Users/arnon/Desktop/test.html', 'w', encoding='utf-8') as f:
+    file_path = 'C:/Users/arnon/Desktop/test.html'
+    with open(file_path, 'w', encoding='utf-8') as f:
         f.write(html_out)
+    webbrowser.open(file_path)
