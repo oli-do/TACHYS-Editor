@@ -1,16 +1,69 @@
 import html
 import webbrowser
-
+import unicodedata
+import re
 from transformer import EpiDocTransformer, EssentialAttributeMissingException
 from bs4 import BeautifulSoup
 from bs4 import Tag, NavigableString
 
-apparatus_id = 0
-resp = ''
-
 class EpiDoc2HTML(EpiDocTransformer):
     line_name: str = ''
-    apparatus_dict: dict[str, list[str]] = {}
+    apparatus_dict: dict[str, list[dict[str, str]]] = {}
+    g_type_map: dict = {
+        'coronis' : '⸎',
+        "asteriskos": "※",
+        "antisigma": "ͻ",
+        "antisigma-periestigmene": "ͽ",
+        "diple": "›",
+        "diple-periestigmene": "⸖",
+        "obelos": "―",
+        "downwards-ancora": "⸔",
+        "upwards-ancora": "⸕",
+        "dotted-obelos": "⸓",
+        "reverse-dotted-obelos": "(PN does not yet support this character)",
+        "chi-periestigmenon": "Χ·",
+        "diple-obelismene": "⤚",
+        "stauros": "†",
+        "rho-cross": "⳨",
+        "chirho": "☧",
+        "dash": "—",
+        "filler": {
+            "extension": "—",
+            "diple": "›"
+        },
+        "slanting-stroke": "/",
+        "backslash": "\\",
+        "double-slanting-stroke": "⸗",
+        "double-vertical-bar": "‖",
+        "long-vertical-bar": "|",
+        "swungdash": "~",
+        "dot": "•",
+        "check": "／",
+        "filled-circle": "⦿",
+        "apostrophe": "’",
+        "diastole": "’",
+        "hypodiastole": "⸒",
+        "high-punctus": "˙",
+        "middot": "·",
+        "low-punctus": ".",
+        "dipunct": "∶",
+        "tripunct": "⋮",
+        "tetrapunct": "⁞",
+        "parens-punctuation-opening": "(",
+        "parens-punctuation-closing": ")",
+        "parens-upper-opening": "⎛",
+        "parens-middle-opening": "⎜",
+        "parens-lower-opening": "⎝",
+        "parens-upper-closing": "⎞",
+        "parens-middle-closing": "⎟",
+        "parens-lower-closing": "⎠",
+        "upper-brace-opening": "⎧",
+        "center-brace-opening": "⎨",
+        "lower-brace-opening": "⎩",
+        "x": "☓",
+        "xs": "☓☓☓☓☓"
+    }
+
     def transform(self, path: str):
         self.text = ''
         self.errors = []
@@ -28,7 +81,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                     lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
                     self.text = '\n'.join(lines) + apparatus
                     title = '<h2 style="text-align:center;">TITLE</h2>'
-                    commentary = '<p>This text has been digitally edited with TACHYS Editor.</p>\n'
+                    commentary = '<p>This text has been created with TACHYS Editor.</p>\n'
                     html_output = (
                                       '<!DOCTYPE html><html style="margin:0; padding:0; height:100%; width:100%; ">'
                                       '<body style="margin:0; padding:0; height:100%; width:100%; display:grid; place-items:center; background:#f0f0f0;">'
@@ -52,14 +105,56 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             return ''
 
-    def add_to_apparatus(self, text: str):
+    def add_to_apparatus(self, text: str, origin: Tag | str):
+        if isinstance(origin, Tag):
+            origin = self.transform_node(origin)
+        origin = self.remove_diacritics_punctuation(origin)
         if self.line_name in self.apparatus_dict:
-            self.apparatus_dict[self.line_name].append(text)
+            self.apparatus_dict[self.line_name].append({origin: text})
         else:
-            self.apparatus_dict[self.line_name] = [text]
+            self.apparatus_dict[self.line_name] = [{origin: text}]
+
+    def get_word_context(self, node: Tag) -> dict[str, str]:
+        prefix = ""
+        curr = node.previous_sibling
+        while curr:
+            text = self.transform_node(curr) if isinstance(curr, Tag) else str(curr)
+            prefix = text + prefix
+            if ' ' in text and isinstance(curr, NavigableString):
+                break
+            curr = curr.previous_sibling
+        inside = node.get_text()
+        suffix = ""
+        curr = node.next_sibling
+        while curr:
+            text = self.transform_node(curr) if isinstance(curr, Tag) else str(curr)
+            suffix += text
+            if ' ' in text and isinstance(curr, NavigableString):
+                break
+            curr = curr.next_sibling
+
+        suffix = re.sub(r'<.*?>', '', suffix)
+        prefix = re.sub(r'<.*?>', '', prefix)
+        if prefix.endswith((' ', ' |')):
+            prefix = ''
+        if suffix.startswith((' ', '| ')):
+            suffix = ''
+        prefix = re.sub('.*\n\n', '', prefix)
+        suffix = re.sub('\n\n.*', '', suffix)
+        prefix = prefix.replace('\n', '').replace('-', '|')
+        suffix = suffix.replace('\n', '').replace('-', '|')
+        prefix = prefix.split(' ')[-1]
+        suffix = suffix.split(' ')[0]
+
+        return {
+            "line": self.line_name,
+            "prefix": prefix,
+            "inside": inside,
+            "suffix": suffix,
+            "full_word": f"{prefix}{inside}{suffix}",
+        }
 
     def transform_node(self, node: Tag):
-        print('transform_node', node)
         contents = node.contents
         name = node.name
         start, end = f'<{node.name}>', f'</{node.name}>'
@@ -70,18 +165,17 @@ class EpiDoc2HTML(EpiDocTransformer):
             if name == 'unclear':
                 return function(node)
             start, end = function(node)
-        print(f'start {start}, end {end}, node {node}')
         if contents:
-            print('start', start, 'end', end)
-            return f'{start}{self.convert(node)}{end}'
+            result = f'{start}{self.convert(node)}{end}'
+            return result
         else:
-            print('start', start, 'end', end)
             return f'{start}{end}'
 
-    def convert(self, node: Tag) -> str:
-        global apparatus_id
-        global resp
+    def convert(self, node: Tag, ignore_app: bool = True) -> str:
         name = node.name
+        if ignore_app:
+            if name in ['corr', 'reg', 'rdg']:
+                return ''
         result = []
         for content in node.contents:
             if isinstance(content, Tag):
@@ -89,27 +183,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             elif isinstance(content, NavigableString):
                 result.append(str(content))
         output = ''.join(result)
-        if name in ['reg', 'corr']:
-                if 'cert' in node.attrs:
-                    self.add_to_apparatus(f'l. {output}?')
-                else:
-                    self.add_to_apparatus(f'l. {output}')
-                return ''
-        elif name == 'rdg':
-            node_parent = node.parent
-            if isinstance(node_parent, Tag):
-                app_type = node_parent.attrs['type']
-                if app_type == 'alternative':
-                    self.add_to_apparatus(f'or {output} {resp}')
-                else:
-                    self.add_to_apparatus(f'{output} {resp}')
-            return ''
-        elif name == 'del':
-            rend = node.attrs['rend']
-            if rend == 'corrected' and node.parent.name == 'subst':
-                self.add_to_apparatus(f'<span id="{apparatus_id}">corr. ex {output}</span>')
-                return ''
-        elif name == 'hi':
+        if name == 'hi':
             rend = node.attrs['rend']
             if rend == 'supraline' or rend == 'supraline-underline':
                 text = node.get_text().strip()
@@ -120,16 +194,28 @@ class EpiDoc2HTML(EpiDocTransformer):
                     else:
                         supraline_text += c
                 return supraline_text
-        print('convert returns', output)
         return output
 
     def generate_apparatus(self):
         lines = []
         for key, values in self.apparatus_dict.items():
-            result = ''
-            result += key + ' '
-            result += ' | '.join(values)
-            lines.append(result)
+            results = []
+            last_origin = 'last_origin'
+            index = 0
+            for val in values:
+                origin, text = list(val.items())[0]
+                if origin == last_origin:
+                    results.append(':')
+                    results.append(text)
+                else:
+                    if index > 0:
+                        results.append('|')
+                    else:
+                        results.append(key)
+                    results.append(text)
+                index += 1
+                last_origin = origin
+            lines.append(' '.join(results))
         return '<p style="font-size:9px;">' + ' ‖ '.join(lines) + '</p>\n'
 
 
@@ -189,14 +275,14 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             rend = attrs['rend']
             if rend == 'indent':
-                self.add_to_apparatus('in eisthesis')
+                self.add_to_apparatus('in eisthesis', '')
                 return f'{lb_break}{close_tr}{new_line}<tr><td>{lb_n}</td><td style="padding-left: 30px;">', ''
             elif rend == 'outdent':
-                self.add_to_apparatus('in ekthesis')
+                self.add_to_apparatus('in ekthesis', '')
             elif rend == 'inverse':
-                self.add_to_apparatus('inversum')
+                self.add_to_apparatus('inversum', '')
             elif rend == 'perpendicular':
-                self.add_to_apparatus('perpendicular in margin')
+                self.add_to_apparatus('perpendicular in margin', '')
             return f'{lb_break}{close_tr}{new_line}<tr><td>{lb_n}</td><td>', ''
 
     def handShift(self, node: Tag):
@@ -282,7 +368,6 @@ class EpiDoc2HTML(EpiDocTransformer):
                 self.unsupported_attribute_value(node, 'rend', rend)
                 return '', ''
         elif place == 'inline':
-            global apparatus_id
             return '', ''
         else:
             self.unsupported_attribute_value(node, 'place', place)
@@ -310,8 +395,20 @@ class EpiDoc2HTML(EpiDocTransformer):
             self.unsupported_attribute_value(node, 'rend', rend)
             return '', ''
 
+    @staticmethod
+    def remove_diacritics_punctuation(text: str):
+        normalized = unicodedata.normalize('NFD', text)
+        clean_text = "".join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+        clean_text = re.sub(r'[^\w\s]', '', clean_text)
+        return unicodedata.normalize('NFC', clean_text)
+
     def hi_diacritical(self, node: Tag, rend: str):
+        context = self.get_word_context(node)
+        prefix = self.remove_diacritics_punctuation(context['prefix'])
+        suffix = self.remove_diacritics_punctuation(context['suffix'])
+        origin = context['full_word']
         parent = node.parent.name
+        text = self.remove_diacritics_punctuation(node.text)
         hi_children = [hi.attrs['rend'] for hi in node.children if isinstance(hi, Tag) and hi.name == 'hi']
         map_diacriticals = {'acute': '´', 'grave': '`'}
         try:
@@ -320,35 +417,43 @@ class EpiDoc2HTML(EpiDocTransformer):
             return '', ''
         if rend == 'diaeresis':
             if not parent == 'hi':
-                return ' ', '(¨)'
+                self.add_to_apparatus(f'{prefix}{text}\u0308{suffix} Pap.', origin)
+                return '', ''
             else:
                 return '', ''
         elif rend == 'asper':
             if not parent == 'hi':
                 if hi_children:
-                    return ' ', '( ῾' + additional_diacritics + ')'
+                    self.add_to_apparatus(f'{prefix}{text}\u1F01{additional_diacritics}{suffix} Pap.', origin)
+                    return '', ''
                 else:
-                    return ' ', '( ῾)'
+                    self.add_to_apparatus(f'{prefix}{text}\u1F01{suffix} Pap.', origin)
+                    return '', ''
             else:
                 return '', ''
         elif rend == 'acute':
             if not parent == 'hi':
-                return ' ', '(´)'
+                self.add_to_apparatus(f'{prefix}{text}\u0301{suffix} Pap.', origin)
+                return '', ''
             else:
                 return '', ''
         elif rend == 'grave':
             if not parent == 'hi':
-                return ' ', '(`)'
+                self.add_to_apparatus(f'{prefix}{text}\u1f70{suffix} Pap.', origin)
+                return '', ''
             else:
                 return '', ''
         elif rend == 'circumflex':
-            return ' ', '(^)'
+            self.add_to_apparatus(f'{prefix}{text}\u0342{suffix} Pap.', origin)
+            return '', ''
         elif rend == 'lenis':
             if not parent == 'hi':
                 if hi_children:
-                    return ' ', '( ᾿' + additional_diacritics + ')'
+                    self.add_to_apparatus(f'{prefix}{text}\u0313{additional_diacritics}{suffix} Pap.', origin)
+                    return '', ''
                 else:
-                    return ' ', '( ᾿)'
+                    self.add_to_apparatus(f'{prefix}{text}\u0313{suffix} Pap.', origin)
+                    return '', ''
             else:
                 return '', ''
         else:
@@ -518,9 +623,9 @@ class EpiDoc2HTML(EpiDocTransformer):
             if node.parent.name == 'subst':
                 return '', ''
             else:
-                return '<s>', '</s>'
+                return '〚', '〛'
         else:
-            return '<s>', '</s>'
+            return '〚', '〛'
 
     @staticmethod
     def expan(node: Tag):
@@ -550,10 +655,8 @@ class EpiDoc2HTML(EpiDocTransformer):
     def q(node: Tag):
         return '"', '"'
 
-    @staticmethod
-    def choice(node: Tag):
-        global apparatus_id
-        apparatus_id += 1
+    def choice(self, node: Tag):
+        self.add_to_apparatus(self.create_apparatus_text(node), str(node))
         return '', ''
 
     @staticmethod
@@ -564,32 +667,96 @@ class EpiDoc2HTML(EpiDocTransformer):
     def orig(node: Tag):
         return '', ''
 
-    @staticmethod
-    def app(node: Tag):
-        global apparatus_id
-        apparatus_id += 1
+    def app(self, node: Tag):
+        self.add_to_apparatus(self.create_apparatus_text(node), str(node))
         return '', ''
 
     @staticmethod
     def lem(node: Tag):
-        global resp
-        resp = ''
-        if 'resp' in node.attrs:
-            resp = str(node.attrs['resp'])
         return '', ''
 
     @staticmethod
     def rdg(node: Tag):
-        global resp
-        resp = ''
-        if 'resp' in node.attrs:
-            resp = str(node.attrs['resp'])
         return '', ''
 
-    @staticmethod
-    def subst(node: Tag):
-        global apparatus_id
-        apparatus_id += 1
+    def create_apparatus_text(self, node: Tag, results=None):
+        if results is None:
+            results = []
+        print('create_apparatus_text', node, results)
+        name = node.name
+        attrs = node.attrs
+        tags = [content for content in node.contents if isinstance(content, Tag)]
+        navigable_strings = [content for content in node.contents if isinstance(content, NavigableString)]
+        parent = node.parent
+        parent_attrs = parent.attrs if isinstance(parent, Tag) else {}
+        app_type = parent_attrs['type'] if 'type' in parent_attrs else ''
+        resp = str(attrs['resp']).strip().replace(',', '') if 'resp' in node.attrs else ''
+        place = attrs['place'] if 'place' in attrs else ''
+        separator = ' : '
+        if name == 'add' and place == 'inline':
+            if navigable_strings:
+                results.append(f'{self.convert(node, False)} corr. ex')
+            else:
+                for tag in tags:
+                    self.create_apparatus_text(tag, results)
+                results.append('corr. ex')
+        elif name == 'del':
+            if navigable_strings:
+                results.append(self.convert(node, False))
+            else:
+                for tag in tags:
+                    self.create_apparatus_text(tag, results)
+        elif name == 'lem':
+            if app_type == 'alternative':
+                if navigable_strings:
+                    results.append(self.convert(node, False))
+                else:
+                    for tag in tags:
+                        self.create_apparatus_text(tag, results)
+            elif app_type == 'editorial':
+                if resp:
+                    if navigable_strings:
+                        results.append(f'{self.convert(node, False)} {resp}')
+                    else:
+                        for tag in tags:
+                            self.create_apparatus_text(tag, results)
+                        results.append(resp)
+        elif name == 'rdg':
+            if app_type == 'alternative':
+                if navigable_strings:
+                    results.append(f'vel{' ' + self.convert(node, False) if navigable_strings else ''}')
+                else:
+                    results.append('vel')
+                    for tag in tags:
+                        self.create_apparatus_text(tag, results)
+            elif app_type == 'editorial':
+                if results:
+                    results.append(separator)
+                if navigable_strings:
+                    results.append(f'{self.convert(node, False)} {resp}')
+                else:
+                    for tag in tags:
+                        self.create_apparatus_text(tag, results)
+                    results.append(resp)
+        elif name == 'reg' or name == 'corr':
+            if navigable_strings:
+                results.append(f'l.{' ' + self.convert(node, False)}')
+            else:
+                for tag in tags:
+                    self.create_apparatus_text(tag, results)
+                results.insert(0, 'l.')
+        elif name in ['orig', 'sic']:
+            return ''
+        elif name in ['app', 'choice', 'subst']:
+            for tag in tags:
+                self.create_apparatus_text(tag, results)
+        else:
+            results.append(self.convert(node, False))
+        results = list(filter(None, results))
+        return ' '.join(results)
+
+    def subst(self, node: Tag):
+        self.add_to_apparatus(self.create_apparatus_text(node), str(node))
         return '', ''
 
     @staticmethod
@@ -612,9 +779,23 @@ class EpiDoc2HTML(EpiDocTransformer):
             value = ''
         return f'<span title="{value}">{rend}', '</span>'
 
-    @staticmethod
-    def g(node: Tag):
-        g_type = node.attrs['type']
+    def g(self, node: Tag):
+        context = self.get_word_context(node)
+        prefix = context['prefix']
+        prefix = self.remove_diacritics_punctuation(prefix)
+        suffix = context['suffix']
+        suffix = self.remove_diacritics_punctuation(suffix)
+        g_type = str(node.attrs['type'])
+        description = g_type.replace('-', ' ')
+        if g_type in self.g_type_map:
+            app_symbol = self.g_type_map[g_type]
+            text_symbol = app_symbol
+        else:
+            app_symbol = f'*'
+            text_symbol = '*'
+        if g_type in ['apostrophe', 'chi-periestigmenon', 'high-punctus', 'middot', 'low-punctus']:
+            text_symbol = ''
+            description = 'punxit'
         parent = node.parent.name
         if parent == 'unclear':
             unclear = '?'
@@ -622,9 +803,15 @@ class EpiDoc2HTML(EpiDocTransformer):
             unclear = ''
         if 'rend' in node.attrs:
             rend = node.attrs['rend']
-            return f'*{g_type}({rend}){unclear}*', ''
+            if isinstance(app_symbol, dict):
+                if rend in app_symbol:
+                    app_symbol = app_symbol[rend]
+                    text_symbol = app_symbol
+        if description == 'punxit':
+            self.add_to_apparatus(f'{prefix}{app_symbol}{suffix} Pap.', '')
         else:
-            return f'*{g_type}{unclear}*', ''
+            self.add_to_apparatus(f'{description} post {prefix} Pap.', '')
+        return f'{text_symbol}{unclear}', ''
 
     @staticmethod
     def figure(node: Tag):
@@ -641,7 +828,8 @@ class EpiDoc2HTML(EpiDocTransformer):
 
 if __name__ == '__main__':
     tr = EpiDoc2HTML()
-    html_out = (tr.transform('C:/Users/arnon/Desktop/test.xml'))
+    # print(tr.create_apparatus_entry(BeautifulSoup(open('C:/Users/arnon/Desktop/new 1.xml', 'r', encoding='utf-8'), 'lxml-xml')))
+    html_out = tr.transform('C:/Users/arnon/Desktop/test.xml')
     file_path = 'C:/Users/arnon/Desktop/test.html'
     with open(file_path, 'w', encoding='utf-8') as f:
         f.write(html_out)

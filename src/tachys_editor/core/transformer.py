@@ -1105,8 +1105,7 @@ class EpiDocTransformer:
     def q(node: Tag):
         return '"', '"'
 
-    @staticmethod
-    def choice(node: Tag):
+    def choice(self, node: Tag):
         return '<:', ':>'
 
     @staticmethod
@@ -1139,8 +1138,7 @@ class EpiDocTransformer:
         else:
             return '||reg||', ''
 
-    @staticmethod
-    def app(node: Tag):
+    def app(self, node: Tag):
         return '<:', ':>'
 
     @staticmethod
@@ -1182,8 +1180,7 @@ class EpiDocTransformer:
         else:
             return '', f'{resp}'
 
-    @staticmethod
-    def subst(node: Tag):
+    def subst(self, node: Tag):
         return '<:', ':>'
 
     @staticmethod
@@ -1210,8 +1207,7 @@ class EpiDocTransformer:
             value = '='
         return '<#', f'{rend}{value}#>'
 
-    @staticmethod
-    def g(node: Tag):
+    def g(self, node: Tag):
         g_type = node.attrs['type']
         parent = node.parent.name
         if parent == 'unclear':
