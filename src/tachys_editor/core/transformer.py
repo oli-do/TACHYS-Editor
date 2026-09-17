@@ -1002,6 +1002,7 @@ class EpiDocTransformer:
             if isinstance(child, Tag):
                 if child.name == 'desc' and child.get_text() == 'vestiges':
                     gap_start = 'vestig'
+                    gap_end = ''
                     node.clear()
         if unit == 'character':
             unit = ''
@@ -1017,7 +1018,10 @@ class EpiDocTransformer:
                 return self.essential_attribute_missing(node, 'atMost')
             return f'{gap_start}.{at_least}-{at_most}{unit}{gap_end}', ''
         elif 'extent' in attrs:
-            return f'{gap_start}.?{unit}{gap_end}', ''
+            if not unit:
+                return f'{gap_start}.?{unit}{gap_end}', ''
+            else:
+                return f'lost.?lin', ''
         elif 'quantity' in attrs:
             try:
                 quantity = attrs['quantity']
@@ -1077,12 +1081,10 @@ class EpiDocTransformer:
             self.unsupported_attribute_value(node, 'rend', rend)
             return '', ''
 
-    @staticmethod
-    def expan(node: Tag):
+    def expan(self, node: Tag):
         return '(', ')'
 
-    @staticmethod
-    def ex(node: Tag):
+    def ex(self, node: Tag):
         if 'cert' in node.attrs:
             cert_low = '?'
         else:

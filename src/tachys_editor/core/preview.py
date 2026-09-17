@@ -3,66 +3,20 @@ import webbrowser
 import unicodedata
 import re
 from transformer import EpiDocTransformer, EssentialAttributeMissingException
+from preview_helper import (g_type_map, expan_map, ex_start_map, ex_match_map,
+                            draw_lost_lines_extent_unknown, draw_gaps,
+                            create_html_output, map_resp_nodes)
 from bs4 import BeautifulSoup
 from bs4 import Tag, NavigableString
 
 class EpiDoc2HTML(EpiDocTransformer):
-    line_name: str = ''
-    apparatus_dict: dict[str, list[dict[str, str]]] = {}
-    g_type_map: dict = {
-        'coronis' : '⸎',
-        "asteriskos": "※",
-        "antisigma": "ͻ",
-        "antisigma-periestigmene": "ͽ",
-        "diple": "›",
-        "diple-periestigmene": "⸖",
-        "obelos": "―",
-        "downwards-ancora": "⸔",
-        "upwards-ancora": "⸕",
-        "dotted-obelos": "⸓",
-        "reverse-dotted-obelos": "(PN does not yet support this character)",
-        "chi-periestigmenon": "Χ·",
-        "diple-obelismene": "⤚",
-        "stauros": "†",
-        "rho-cross": "⳨",
-        "chirho": "☧",
-        "dash": "—",
-        "filler": {
-            "extension": "—",
-            "diple": "›"
-        },
-        "slanting-stroke": "/",
-        "backslash": "\\",
-        "double-slanting-stroke": "⸗",
-        "double-vertical-bar": "‖",
-        "long-vertical-bar": "|",
-        "swungdash": "~",
-        "dot": "•",
-        "check": "／",
-        "filled-circle": "⦿",
-        "apostrophe": "’",
-        "diastole": "’",
-        "hypodiastole": "⸒",
-        "high-punctus": "˙",
-        "middot": "·",
-        "low-punctus": ".",
-        "dipunct": "∶",
-        "tripunct": "⋮",
-        "tetrapunct": "⁞",
-        "parens-punctuation-opening": "(",
-        "parens-punctuation-closing": ")",
-        "parens-upper-opening": "⎛",
-        "parens-middle-opening": "⎜",
-        "parens-lower-opening": "⎝",
-        "parens-upper-closing": "⎞",
-        "parens-middle-closing": "⎟",
-        "parens-lower-closing": "⎠",
-        "upper-brace-opening": "⎧",
-        "center-brace-opening": "⎨",
-        "lower-brace-opening": "⎩",
-        "x": "☓",
-        "xs": "☓☓☓☓☓"
-    }
+
+    def __init__(self):
+        super().__init__()
+        self.line_name: str = ''
+        self.apparatus_dict: dict[str, list[dict[str, str]]] = {}
+        self.ex_start_map = dict(sorted(ex_start_map.items(), key=lambda x: len(x[0]), reverse=True))
+        self.resp_map: dict = {}
 
     def transform(self, path: str):
         self.text = ''
@@ -73,29 +27,17 @@ class EpiDoc2HTML(EpiDocTransformer):
             if main_div:
                 has_lines = main_div.find('lb')
                 if has_lines:
+                    self.resp_map = map_resp_nodes(main_div)
                     try:
                         self.text += self.transform_node(main_div)
                     except EssentialAttributeMissingException:
                         return ''
                     apparatus = self.generate_apparatus() if self.apparatus_dict else ''
                     lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
+                    lines = draw_lost_lines_extent_unknown(lines)
+                    lines = draw_gaps(lines)
                     self.text = '\n'.join(lines) + apparatus
-                    title = '<h2 style="text-align:center;">TITLE</h2>'
-                    commentary = '<p>This text has been created with TACHYS Editor.</p>\n'
-                    html_output = (
-                                      '<!DOCTYPE html><html style="margin:0; padding:0; height:100%; width:100%; ">'
-                                      '<body style="margin:0; padding:0; height:100%; width:100%; display:grid; place-items:center; background:#f0f0f0;">'
-                                      '<div style="'
-                                      'font-family:IFAO-Grec Unicode; '
-                                      'font-size:11px; '
-                                      'width:21cm; '
-                                      'border:2px solid black; '
-                                      'transform: scale(min(100vw / 21cm, 100vh / 29.7cm)); '
-                                      'transform-origin: center; '
-                                      'background: white; '
-                                      'padding: 2.54cm; '
-                                      'box-sizing: border-box; '
-                                      '">') + title + commentary + self.text + '</div></body></html>'
+                    html_output = create_html_output(self.text, self.resp_map)
                     return html_output
                 else:
                     return ''
@@ -260,6 +202,12 @@ class EpiDoc2HTML(EpiDocTransformer):
             lb_n = int(lb_n)
             if not lb_n % 5 == 0:
                 lb_n = ''
+            sibling = node.next_sibling
+            if isinstance(sibling, Tag):
+                if sibling.name == 'gap':
+                    if 'extent' in sibling.attrs:
+                        if sibling.attrs['unit'] == 'line':
+                            lb_n = ''
         except ValueError:
             pass
         parent = node.parent.name
@@ -314,26 +262,43 @@ class EpiDoc2HTML(EpiDocTransformer):
         if unit == 'character':
             unit = ''
         else:
-            unit = 'lin'
+            unit = ' lines'
         if 'precision' in attrs:
-            precision_low = 'ca.'
+            precision_low = ' c. '
         else:
             precision_low = ''
         if 'atLeast' in node.attrs:
-            at_least = attrs['atLeast']
+            at_least = str(attrs['atLeast'])
             try:
-                at_most = attrs['atMost']
+                at_most = str(attrs['atMost'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'atMost')
-            return f'vac.{at_least}-{at_most}{unit}', ''
+            description = f'vacat {at_least}-{at_most}{unit}'
+            try:
+                quantity = round((int(at_least) + int(at_most)) / 2)
+                in_text = ''
+                for i in range(int(quantity)):
+                    in_text += ' '
+                self.add_to_apparatus(description, str(node))
+                return in_text, ''
+            except ValueError:
+                return f'<i>{description}</i>', ''
         elif 'extent' in attrs:
-            return f'vac.?{unit}', ''
+            return f'vacat{unit}', ''
         else:
             try:
-                quantity = attrs['quantity']
+                quantity = str(attrs['quantity'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'quantity')
-            return f'vac.{precision_low}{quantity}{unit}', ''
+            description = f'vacat{precision_low} {quantity}{unit}'
+            self.add_to_apparatus(description, str(node))
+            if not unit:
+                in_text = ''
+                for i in range(int(quantity)):
+                    in_text += ' '
+                return in_text, ''
+            else:
+                return f'<i>{description}</i>', ''
 
     def add(self, node: Tag):
         attrs = node.attrs
@@ -484,80 +449,39 @@ class EpiDoc2HTML(EpiDocTransformer):
             return '', ''
 
     def gap_ellipsis(self, node: Tag):
-        attrs = node.attrs
-        try:
-            unit = attrs['unit']
-        except KeyError:
-            return self.essential_attribute_missing(node, 'unit')
-        desc = node.find('desc')
+        _, unit, precision_low, quantity = self.extract_gap_attributes(node)
+        if not unit:
+            unit = 'character'
+        unit = ' ' + unit
+        desc = node.find_next('desc')
         desc_text = desc.get_text()
-        intro = 'Lang'
-        if unit == 'line':
-            unit = 'lines'
-        else:
-            unit = 'char'
-        if desc_text == 'non transcribed':
-            if unit == 'line':
-                intro = 'Lines'
-            else:
-                intro = 'Chars'
-            unit = 'non transcribed'
-        if 'precision' in attrs:
-            precision_low = 'ca.'
-        else:
-            precision_low = ''
-        if 'atLeast' in attrs:
-            at_least = attrs['atLeast']
-            try:
-                at_most = attrs['atMost']
-            except KeyError:
-                return self.essential_attribute_missing(node, 'atMost')
-            return f'({intro}: ', f'{at_least}-{at_most} {unit})'
-        elif 'extent' in attrs:
-            return f'({intro}: ', f'? {unit})'
-        elif 'quantity' in attrs:
-            try:
-                quantity = attrs['quantity']
-            except KeyError:
-                return self.essential_attribute_missing(node, 'quantity')
-            return f'({intro}: ', f'{precision_low}{quantity} {unit})'
-        else:
-            self.unsupported_attribute(node)
+        desc.clear(decompose=True)
+        try:
+            if int(quantity) > 1:
+                unit += 's'
+        except ValueError:
+            unit += 's'
+        if 'character' in unit:
+            self.add_to_apparatus(f'om. {quantity}{unit} of {desc_text} text', str(node))
             return '', ''
+        else:
+            return f'<i>(om. {quantity}{unit} of {desc_text} text)</i>', ''
 
     @staticmethod
     def desc(node: Tag):
         return '', ''
 
-    def gap(self, node: Tag):
+    def extract_gap_attributes(self, node: Tag):
         attrs = node.attrs
         reason = str(attrs['reason'])
-        if reason == 'lost':
-            gap_start = '['
-            gap_end = ']'
-        elif reason == 'illegible':
-            gap_start = ''
-            gap_end = ''
-        elif reason == 'ellipsis':
-            return self.gap_ellipsis(node)
-        else:
-            self.unsupported_attribute_value(node, 'reason', reason)
-            return ''
         try:
             unit = attrs['unit']
+            if unit != 'line':
+                unit = ''
         except KeyError:
             return self.essential_attribute_missing(node, 'unit')
-        for child in node.children:
-            if isinstance(child, Tag):
-                if child.name == 'desc' and child.get_text() == 'vestiges':
-                    gap_start = 'vestig'
-                    node.clear()
-        if unit == 'character':
-            unit = ''
-        else:
-            unit = 'lines'
         if 'precision' in attrs:
-            precision_low = 'ca '
+            precision_low = ' c. '
         else:
             precision_low = ''
         if 'atLeast' in attrs:
@@ -566,21 +490,67 @@ class EpiDoc2HTML(EpiDocTransformer):
                 at_most = attrs['atMost']
             except KeyError:
                 return self.essential_attribute_missing(node, 'atMost')
-            return f'{gap_start} {at_least}-{at_most} {unit}{gap_end}', ''
+            quantity = f'{at_least}-{at_most}'
         elif 'extent' in attrs:
-            return f'{gap_start}.?{unit}{gap_end}', ''
+            quantity = '?'
         elif 'quantity' in attrs:
             try:
                 quantity = str(attrs['quantity'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'quantity')
-            if precision_low:
-                return f'{gap_start}{precision_low}{quantity}{unit}{gap_end}', ''
+        else:
+            quantity = ''
+        return reason, unit, precision_low, quantity
+
+    def gap(self, node: Tag):
+        reason, unit, precision_low, quantity = self.extract_gap_attributes(node)
+        if reason == 'lost':
+            gap_start = '['
+            gap_end = ']'
+            status = 'missing'
+        elif reason == 'illegible':
+            gap_start = ''
+            gap_end = ''
+            status = 'illegible'
+        elif reason == 'ellipsis':
+            return self.gap_ellipsis(node)
+        else:
+            self.unsupported_attribute_value(node, 'reason', reason)
+            return ''
+        if quantity:
+            if '-' in quantity:
+                if unit:
+                    return f'<i>({quantity} lines {status})</i>', ''
+                else:
+                    if reason == 'lost':
+                        return f'{gap_start} {quantity} {unit}{gap_end}', ''
+                    else:
+                        q_split = quantity.split('-')
+                        at_least = int(q_split[0])
+                        at_most = int(q_split[1])
+                        underdots = '\ue5ce' * at_most
+                        underdots = underdots[:at_least] + '(' + underdots[at_least:] + ')'
+                        return f'{underdots}', ''
+            elif quantity == '?':
+                if unit:
+                    return 'lost.?lin', ''
+                else:
+                   return f'{gap_start} {quantity} {gap_end}', ''
             else:
                 if not unit:
-                    underdots = ['\ue5ce' for _ in range(int(quantity))]
-                    quantity = ''.join(underdots)
-                return f'{gap_start}{precision_low}{quantity}{unit}{gap_end}', ''
+                    if precision_low:
+                        return f'{gap_start}{precision_low}{quantity} {gap_end}', ''
+                    else:
+                        underdots = ''
+                        underdots += '\ue5ce' * int(quantity)
+                        return f'{gap_start}{underdots}{gap_end}', ''
+                else:
+                    if int(quantity) > 1:
+                        unit += 's'
+                    if precision_low:
+                        return f'<i>({precision_low} {quantity} {unit} {status})</i>', ''
+                    else:
+                        return f'<i>({quantity} {unit} {status})</i>', ''
         else:
             return '[', ']'
 
@@ -627,16 +597,46 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             return '〚', '〛'
 
-    @staticmethod
-    def expan(node: Tag):
+    def expan(self, node: Tag):
+        text = ''
+        for content in node.contents:
+            if isinstance(content, NavigableString):
+                text += content
+        if text:
+            text = self.remove_diacritics_punctuation(text)
+            if text in expan_map:
+                self.add_to_apparatus(self.convert(node), str(node))
+                node.clear()
+                return expan_map[text], ''
         return '', ''
 
-    @staticmethod
-    def ex(node: Tag):
+    def ex(self, node: Tag):
         if 'cert' in node.attrs:
             cert_low = '?'
         else:
             cert_low = ''
+        text = ''
+        for content in node.contents:
+            if isinstance(content, NavigableString):
+                text += content
+        if text:
+            text = self.remove_diacritics_punctuation(text)
+            parent = node.find_parent('expan')
+            parent_has_navigable_strings = [content for content in parent.contents if isinstance(content, NavigableString)]
+            if not parent_has_navigable_strings:
+                for key, value in self.ex_start_map.items():
+                    if key.startswith(text):
+                        self.add_to_apparatus(f'({self.convert(node)})', str(node))
+                        node.clear()
+                        return value, ''
+            else:
+                if text in ex_match_map:
+                    context = self.get_word_context(node)
+                    prefix = context["prefix"]
+                    suffix = context["suffix"]
+                    self.add_to_apparatus(f'{prefix}({self.convert(node)}){suffix}', str(node))
+                    node.clear()
+                    return ex_match_map[text], ''
         return '(', f'{cert_low})'
 
     @staticmethod
@@ -656,7 +656,9 @@ class EpiDoc2HTML(EpiDocTransformer):
         return '"', '"'
 
     def choice(self, node: Tag):
-        self.add_to_apparatus(self.create_apparatus_text(node), str(node))
+        parent_app = [parent for parent in node.parents if isinstance(parent, Tag) and parent.name in ['app', 'subst']]
+        if not parent_app:
+            self.add_to_apparatus(self.create_apparatus_text(node), str(node))
         return '', ''
 
     @staticmethod
@@ -668,7 +670,9 @@ class EpiDoc2HTML(EpiDocTransformer):
         return '', ''
 
     def app(self, node: Tag):
-        self.add_to_apparatus(self.create_apparatus_text(node), str(node))
+        parent_app = [parent for parent in node.parents if isinstance(parent, Tag) and parent.name in ['subst', 'choice']]
+        if not parent_app:
+            self.add_to_apparatus(self.create_apparatus_text(node), str(node))
         return '', ''
 
     @staticmethod
@@ -682,7 +686,6 @@ class EpiDoc2HTML(EpiDocTransformer):
     def create_apparatus_text(self, node: Tag, results=None):
         if results is None:
             results = []
-        print('create_apparatus_text', node, results)
         name = node.name
         attrs = node.attrs
         tags = [content for content in node.contents if isinstance(content, Tag)]
@@ -690,7 +693,14 @@ class EpiDoc2HTML(EpiDocTransformer):
         parent = node.parent
         parent_attrs = parent.attrs if isinstance(parent, Tag) else {}
         app_type = parent_attrs['type'] if 'type' in parent_attrs else ''
-        resp = str(attrs['resp']).strip().replace(',', '') if 'resp' in node.attrs else ''
+        resp = str(attrs['resp']).strip() if 'resp' in node.attrs else ''
+        resp_abbr = ''
+        if resp:
+            resps = []
+            for current_resp in resp.split(','):
+                current_resp = current_resp.strip()
+                resps.append(self.resp_map[current_resp])
+            resp_abbr = ' '.join(resps)
         place = attrs['place'] if 'place' in attrs else ''
         separator = ' : '
         if name == 'add' and place == 'inline':
@@ -714,13 +724,13 @@ class EpiDoc2HTML(EpiDocTransformer):
                     for tag in tags:
                         self.create_apparatus_text(tag, results)
             elif app_type == 'editorial':
-                if resp:
+                if resp_abbr:
                     if navigable_strings:
-                        results.append(f'{self.convert(node, False)} {resp}')
+                        results.append(f'{self.convert(node, False)} {resp_abbr}')
                     else:
                         for tag in tags:
                             self.create_apparatus_text(tag, results)
-                        results.append(resp)
+                        results.append(resp_abbr)
         elif name == 'rdg':
             if app_type == 'alternative':
                 if navigable_strings:
@@ -733,11 +743,11 @@ class EpiDoc2HTML(EpiDocTransformer):
                 if results:
                     results.append(separator)
                 if navigable_strings:
-                    results.append(f'{self.convert(node, False)} {resp}')
+                    results.append(f'{self.convert(node, False)} {resp_abbr}')
                 else:
                     for tag in tags:
                         self.create_apparatus_text(tag, results)
-                    results.append(resp)
+                    results.append(resp_abbr)
         elif name == 'reg' or name == 'corr':
             if navigable_strings:
                 results.append(f'l.{' ' + self.convert(node, False)}')
@@ -756,7 +766,9 @@ class EpiDoc2HTML(EpiDocTransformer):
         return ' '.join(results)
 
     def subst(self, node: Tag):
-        self.add_to_apparatus(self.create_apparatus_text(node), str(node))
+        parent_app = [parent for parent in node.parents if isinstance(parent, Tag) and parent.name in ['app', 'choice']]
+        if not parent_app:
+            self.add_to_apparatus(self.create_apparatus_text(node), str(node))
         return '', ''
 
     @staticmethod
@@ -787,8 +799,8 @@ class EpiDoc2HTML(EpiDocTransformer):
         suffix = self.remove_diacritics_punctuation(suffix)
         g_type = str(node.attrs['type'])
         description = g_type.replace('-', ' ')
-        if g_type in self.g_type_map:
-            app_symbol = self.g_type_map[g_type]
+        if g_type in g_type_map:
+            app_symbol = g_type_map[g_type]
             text_symbol = app_symbol
         else:
             app_symbol = f'*'
@@ -810,7 +822,10 @@ class EpiDoc2HTML(EpiDocTransformer):
         if description == 'punxit':
             self.add_to_apparatus(f'{prefix}{app_symbol}{suffix} Pap.', '')
         else:
-            self.add_to_apparatus(f'{description} post {prefix} Pap.', '')
+            if prefix:
+                self.add_to_apparatus(f'{description} post {prefix} Pap.', '')
+            else:
+                self.add_to_apparatus(f'{description} Pap.', '')
         return f'{text_symbol}{unclear}', ''
 
     @staticmethod
@@ -828,7 +843,6 @@ class EpiDoc2HTML(EpiDocTransformer):
 
 if __name__ == '__main__':
     tr = EpiDoc2HTML()
-    # print(tr.create_apparatus_entry(BeautifulSoup(open('C:/Users/arnon/Desktop/new 1.xml', 'r', encoding='utf-8'), 'lxml-xml')))
     html_out = tr.transform('C:/Users/arnon/Desktop/test.xml')
     file_path = 'C:/Users/arnon/Desktop/test.html'
     with open(file_path, 'w', encoding='utf-8') as f:
