@@ -1,11 +1,13 @@
 import html
-import webbrowser
-import unicodedata
+from pathlib import Path
+
 import re
-from transformer import EpiDocTransformer, EssentialAttributeMissingException
-from preview_helper import (g_type_map, expan_map, ex_start_map, ex_match_map,
+from tachys_editor.core.transformers.xml_transformer import EpiDocTransformer
+from tachys_editor.shared.transformer_helper import EssentialAttributeMissingException
+from tachys_editor.core.transformers.preview_helper import (g_type_map, expan_map, ex_start_map, ex_match_map,
                             draw_lost_lines_extent_unknown, draw_gaps,
-                            create_html_output, map_resp_nodes)
+                            create_html_output, map_resp_nodes, remove_diacritics_punctuation)
+from tachys_editor.shared.transformer_helper import validate_epidoc_tei
 from bs4 import BeautifulSoup
 from bs4 import Tag, NavigableString
 
@@ -18,11 +20,19 @@ class EpiDoc2HTML(EpiDocTransformer):
         self.ex_start_map = dict(sorted(ex_start_map.items(), key=lambda x: len(x[0]), reverse=True))
         self.resp_map: dict = {}
 
-    def transform(self, path: str):
+    def reset(self):
         self.text = ''
         self.errors = []
-        if self.is_valid_tei(path):
-            soup = BeautifulSoup(open(path, 'r', encoding='utf-8'), 'lxml-xml')
+        self.apparatus_dict = {}
+
+    def transform(self, xml: Path | str):
+        self.reset()
+        success, info = validate_epidoc_tei(xml)
+        if success:
+            if isinstance(xml, Path):
+                soup = BeautifulSoup(open(xml, 'r', encoding='utf-8'), 'lxml-xml')
+            else:
+                soup = BeautifulSoup(xml, 'lxml-xml')
             main_div = soup.find('div', attrs={'type': 'edition'})
             if main_div:
                 has_lines = main_div.find('lb')
@@ -42,15 +52,16 @@ class EpiDoc2HTML(EpiDocTransformer):
                 else:
                     return ''
             else:
-                self.errors.append(f'There is no <div> with @type="edition" in file "{path}".')
+                self.errors.append(f'There is no <div> with @type="edition" in "{xml}".')
                 return ''
         else:
+            self.errors = info
             return ''
 
     def add_to_apparatus(self, text: str, origin: Tag | str):
         if isinstance(origin, Tag):
             origin = self.transform_node(origin)
-        origin = self.remove_diacritics_punctuation(origin)
+        origin = remove_diacritics_punctuation(origin)
         if self.line_name in self.apparatus_dict:
             self.apparatus_dict[self.line_name].append({origin: text})
         else:
@@ -115,8 +126,9 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     def convert(self, node: Tag, ignore_app: bool = True) -> str:
         name = node.name
+        parent_name = node.parent.name if isinstance(node.parent, Tag) else ''
         if ignore_app:
-            if name in ['corr', 'reg', 'rdg']:
+            if name in ['corr', 'reg', 'rdg'] or (name == 'del' and parent_name == 'subst'):
                 return ''
         result = []
         for content in node.contents:
@@ -125,16 +137,16 @@ class EpiDoc2HTML(EpiDocTransformer):
             elif isinstance(content, NavigableString):
                 result.append(str(content))
         output = ''.join(result)
-        if name == 'hi':
-            rend = node.attrs['rend']
+        if parent_name == 'hi':
+            rend = node.parent.attrs['rend']
             if rend == 'supraline' or rend == 'supraline-underline':
-                text = node.get_text().strip()
                 supraline_text = ''
-                for c in text:
-                    if c != ' ':
-                        supraline_text += c + '\u0305'
-                    else:
-                        supraline_text += c
+                for text in result:
+                    for c in text:
+                        if c != ' ':
+                            supraline_text += c + '\u0305'
+                        else:
+                            supraline_text += c
                 return supraline_text
         return output
 
@@ -179,6 +191,8 @@ class EpiDoc2HTML(EpiDocTransformer):
                 elif n == 'r':
                     n = 'recto →'
                 return f'{apparatus}<h3>{n}</h3>', ''
+        elif div_type == 'edition':
+            return '', ''
         else:
             self.unsupported_attribute_value(node, 'type', div_type)
             return '', ''
@@ -360,20 +374,13 @@ class EpiDoc2HTML(EpiDocTransformer):
             self.unsupported_attribute_value(node, 'rend', rend)
             return '', ''
 
-    @staticmethod
-    def remove_diacritics_punctuation(text: str):
-        normalized = unicodedata.normalize('NFD', text)
-        clean_text = "".join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
-        clean_text = re.sub(r'[^\w\s]', '', clean_text)
-        return unicodedata.normalize('NFC', clean_text)
-
     def hi_diacritical(self, node: Tag, rend: str):
         context = self.get_word_context(node)
-        prefix = self.remove_diacritics_punctuation(context['prefix'])
-        suffix = self.remove_diacritics_punctuation(context['suffix'])
+        prefix = remove_diacritics_punctuation(context['prefix'])
+        suffix = remove_diacritics_punctuation(context['suffix'])
         origin = context['full_word']
         parent = node.parent.name
-        text = self.remove_diacritics_punctuation(node.text)
+        text = remove_diacritics_punctuation(node.text)
         hi_children = [hi.attrs['rend'] for hi in node.children if isinstance(hi, Tag) and hi.name == 'hi']
         map_diacriticals = {'acute': '´', 'grave': '`'}
         try:
@@ -603,7 +610,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             if isinstance(content, NavigableString):
                 text += content
         if text:
-            text = self.remove_diacritics_punctuation(text)
+            text = remove_diacritics_punctuation(text)
             if text in expan_map:
                 self.add_to_apparatus(self.convert(node), str(node))
                 node.clear()
@@ -620,7 +627,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             if isinstance(content, NavigableString):
                 text += content
         if text:
-            text = self.remove_diacritics_punctuation(text)
+            text = remove_diacritics_punctuation(text)
             parent = node.find_parent('expan')
             parent_has_navigable_strings = [content for content in parent.contents if isinstance(content, NavigableString)]
             if not parent_has_navigable_strings:
@@ -794,9 +801,9 @@ class EpiDoc2HTML(EpiDocTransformer):
     def g(self, node: Tag):
         context = self.get_word_context(node)
         prefix = context['prefix']
-        prefix = self.remove_diacritics_punctuation(prefix)
+        prefix = remove_diacritics_punctuation(prefix)
         suffix = context['suffix']
-        suffix = self.remove_diacritics_punctuation(suffix)
+        suffix = remove_diacritics_punctuation(suffix)
         g_type = str(node.attrs['type'])
         description = g_type.replace('-', ' ')
         if g_type in g_type_map:
@@ -840,11 +847,3 @@ class EpiDoc2HTML(EpiDocTransformer):
     def foreign(node: Tag):
         lang = node.attrs['xml:lang']
         return f'<span title="{lang}">', f'</span> '
-
-if __name__ == '__main__':
-    tr = EpiDoc2HTML()
-    html_out = tr.transform('C:/Users/arnon/Desktop/test.xml')
-    file_path = 'C:/Users/arnon/Desktop/test.html'
-    with open(file_path, 'w', encoding='utf-8') as f:
-        f.write(html_out)
-    webbrowser.open(file_path)

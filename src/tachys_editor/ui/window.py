@@ -1,6 +1,8 @@
 import json
 import os
 import uuid
+import webbrowser
+import tempfile
 from os.path import basename
 from pathlib import Path
 from typing import Callable
@@ -14,9 +16,13 @@ from .editor import TachysEditor
 from .docks import BottomDock
 from ..core.change_tracker import ChangeTracker
 from ..core.parser import TachysParser
-from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
+from ..core.transformers.leiden_plus_transformer import LeidenPlusTransformer
+from ..core.transformers.xml_transformer import EpiDocTransformer
+from ..core.transformers.tei_builder import TEIBuilder
+from ..core.transformers.preview import EpiDoc2HTML
 from ..core.ai import AIManager
 from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
+from ..shared.transformer_helper import validate_epidoc_tei
 from .preferences import PreferencesDialog
 
 from importlib.resources import files
@@ -31,6 +37,7 @@ class TachysEditorWindow(QMainWindow):
         self.parser = TachysParser()
         self.lp_transformer = LeidenPlusTransformer()
         self.ed_transformer = EpiDocTransformer()
+        self.html_transformer = EpiDoc2HTML()
         self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
@@ -235,6 +242,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(submenu_zoom, 'Zoom Out', self.editor.zoomOut, shortcuts.zoom_out, tooltip='Alternatively: Ctrl+Mousewheel Down')
         view_menu.addMenu(submenu_zoom)
         self.add_menu_action(view_menu, 'Problems', lambda: self.bottom_dock.setVisible(True))
+        self.add_menu_action(view_menu, 'Preview (HTML)', lambda: self.export_to_xml(True))
         # Settings Menu
         settings_menu = self.menuBar().addMenu('Settings')
         self.add_menu_action(settings_menu, 'Preferences', lambda: self.preferences_dialog.show())
@@ -351,9 +359,9 @@ class TachysEditorWindow(QMainWindow):
         text = self.editor.toPlainText()
         self.save_file(True, text, '*.txt')
 
-    def export_to_xml(self):
+    def export_to_xml(self, preview: bool=False):
         if self.editor.debug_worker.is_running or self.editor.debug_timer.isActive():
-            self.export_timer.singleShot(500, self.export_to_xml)
+            self.export_timer.singleShot(500, lambda: self.export_to_xml(preview))
             if not self.msg_awaiting_export.isVisible():
                 self.msg_awaiting_export.setVisible(True)
             return
@@ -368,12 +376,21 @@ class TachysEditorWindow(QMainWindow):
             xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
         else:
             xml = self.tei_builder.build_placeholder(inner_body)
-        if self.lp_transformer.is_valid_tei(xml) is not None:
-            self.save_file(True, xml, '*.xml')
+        is_valid_tei, info = validate_epidoc_tei(xml)
+        if is_valid_tei:
+            if not preview:
+                self.save_file(True, xml, '*.xml')
+            else:
+                html_out = self.html_transformer.transform(xml)
+                with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False, encoding='utf-8') as f:
+                    f.write(html_out)
+                    temp_file_name = f.name
+                webbrowser.open('file://' + os.path.abspath(temp_file_name))
+                self.export_timer.singleShot(5000, lambda: os.remove(temp_file_name))
         else:
             msg = QMessageBox()
             msg.setWindowTitle('Export Failed')
-            error = self.lp_transformer.errors[0]
+            error = info[0]
             if 'tag mismatch' in error:
                 msg.setText('XML Syntax Error.\n\nThis was likely caused by malformed Leiden+ code that could not be '
                             'recognized as an error. Check your Leiden+ syntax.')
@@ -562,3 +579,4 @@ class TachysEditorWindow(QMainWindow):
         self.update_settings()
         if self.file_path.endswith('.leiden') and settings_mgr.general.auto_save_on_exit:
             self.save_file(False, self.create_leiden_file())
+        self.editor.debug_worker.debug_executor.shutdown(wait=False, cancel_futures=True)

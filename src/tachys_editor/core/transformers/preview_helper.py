@@ -1,6 +1,7 @@
 import html
 import bisect
 import re
+import unicodedata
 from bs4.element import Tag
 
 g_type_map: dict = {
@@ -88,6 +89,12 @@ ex_match_map: dict = {
     "ν": "\u0305"
 }
 
+def remove_diacritics_punctuation(text: str):
+    normalized = unicodedata.normalize('NFD', text)
+    clean_text = "".join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
+    clean_text = re.sub(r'[^\w\s]', '', clean_text)
+    return unicodedata.normalize('NFC', clean_text)
+
 def draw_lost_lines_extent_unknown(lines: list[str]):
     lines_raw_text = [html.unescape(re.sub(r'<.*?>|[0-9]+', '', line)) for line in lines]
     lost_lin_indices = []
@@ -98,12 +105,16 @@ def draw_lost_lines_extent_unknown(lines: list[str]):
             lost_lin_indices.append(i)
         elif '<h3>' in line:
             text_part_indices.append(i)
+    if len(text_part_indices) == 1:
+        text_part_indices.append(len(lines_raw_text) - 1)
     for i in lost_lin_indices:
         pos = bisect.bisect_left(text_part_indices, i)
         try:
             text_part_start = text_part_indices[pos - 1]
             text_part_end = text_part_indices[pos]
-            text_part_char_lengths = [len(line) for line in lines_raw_text[text_part_start:text_part_end - 1]]
+            while not '<tr>' in lines[text_part_end]:
+                text_part_end -= 1
+            text_part_char_lengths = [len(remove_diacritics_punctuation(line)) for line in lines_raw_text[text_part_start:text_part_end]]
             max_length = max(text_part_char_lengths)
         except IndexError:
             max_length = 20
@@ -120,7 +131,7 @@ def draw_gaps(lines: list[str]):
             lines[i] = line[:-4]
         if line.startswith('[ ? ]'):
             lines[i] = line[4:]
-        lines[i] = re.sub(r']( +)\[', '\1', lines[i])
+        lines[i] = re.sub(r']( +)\[', r'\1', lines[i])
     return lines
 
 def map_resp_nodes(main_div: Tag):
