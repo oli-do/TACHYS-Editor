@@ -19,6 +19,7 @@ class EpiDoc2HTML(EpiDocTransformer):
         self.apparatus_dict: dict[str, list[dict[str, str]]] = {}
         self.ex_start_map = dict(sorted(ex_start_map.items(), key=lambda x: len(x[0]), reverse=True))
         self.resp_map: dict = {}
+        self.is_searching_word_context = False
 
     def reset(self):
         self.text = ''
@@ -68,36 +69,43 @@ class EpiDoc2HTML(EpiDocTransformer):
             self.apparatus_dict[self.line_name] = [{origin: text}]
 
     def get_word_context(self, node: Tag) -> dict[str, str]:
-        prefix = ""
-        curr = node.previous_sibling
-        while curr:
-            text = self.transform_node(curr) if isinstance(curr, Tag) else str(curr)
-            prefix = text + prefix
-            if ' ' in text and isinstance(curr, NavigableString):
-                break
-            curr = curr.previous_sibling
-        inside = node.get_text()
-        suffix = ""
-        curr = node.next_sibling
-        while curr:
-            text = self.transform_node(curr) if isinstance(curr, Tag) else str(curr)
-            suffix += text
-            if ' ' in text and isinstance(curr, NavigableString):
-                break
-            curr = curr.next_sibling
+        if not self.is_searching_word_context:
+            self.is_searching_word_context = True
+            prefix = ""
+            curr = node.previous_sibling
+            while curr:
+                text = self.transform_node(curr) if isinstance(curr, Tag) else str(curr)
+                prefix = text + prefix
+                if ' ' in text and isinstance(curr, NavigableString):
+                    break
+                curr = curr.previous_sibling
+            inside = node.get_text()
+            suffix = ""
+            curr = node.next_sibling
+            while curr:
+                text = self.transform_node(curr) if isinstance(curr, Tag) else str(curr)
+                suffix += text
+                if ' ' in text and isinstance(curr, NavigableString):
+                    break
+                curr = curr.next_sibling
 
-        suffix = re.sub(r'<.*?>', '', suffix)
-        prefix = re.sub(r'<.*?>', '', prefix)
-        if prefix.endswith((' ', ' |')):
+            suffix = re.sub(r'<.*?>', '', suffix)
+            prefix = re.sub(r'<.*?>', '', prefix)
+            if prefix.endswith((' ', ' |')):
+                prefix = ''
+            if suffix.startswith((' ', '| ')):
+                suffix = ''
+            prefix = re.sub('.*\n\n', '', prefix)
+            suffix = re.sub('\n\n.*', '', suffix)
+            prefix = prefix.replace('\n', '').replace('-', '|')
+            suffix = suffix.replace('\n', '').replace('-', '|')
+            prefix = prefix.split(' ')[-1]
+            suffix = suffix.split(' ')[0]
+            self.is_searching_word_context = False
+        else:
             prefix = ''
-        if suffix.startswith((' ', '| ')):
+            inside = ''
             suffix = ''
-        prefix = re.sub('.*\n\n', '', prefix)
-        suffix = re.sub('\n\n.*', '', suffix)
-        prefix = prefix.replace('\n', '').replace('-', '|')
-        suffix = suffix.replace('\n', '').replace('-', '|')
-        prefix = prefix.split(' ')[-1]
-        suffix = suffix.split(' ')[0]
 
         return {
             "line": self.line_name,
@@ -287,30 +295,28 @@ class EpiDoc2HTML(EpiDocTransformer):
                 at_most = str(attrs['atMost'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'atMost')
-            description = f'vacat {at_least}-{at_most}{unit}'
+            description = f'vac. {at_least}-{at_most}{unit}'
             try:
                 quantity = round((int(at_least) + int(at_most)) / 2)
                 in_text = ''
-                for i in range(int(quantity)):
-                    in_text += ' '
+                in_text += '&nbsp;' * int(quantity)
                 self.add_to_apparatus(description, str(node))
                 return in_text, ''
             except ValueError:
                 return f'<i>{description}</i>', ''
         elif 'extent' in attrs:
-            return f'vacat{unit}', ''
+            return f'vac.{unit}', ''
         else:
             try:
                 quantity = str(attrs['quantity'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'quantity')
-            description = f'vacat{precision_low} {quantity}{unit}'
+            description = f'vac.{precision_low} {quantity}{unit}'
             self.add_to_apparatus(description, str(node))
             if not unit:
                 in_text = ''
-                for i in range(int(quantity)):
-                    in_text += ' '
-                return in_text, ''
+                in_text += '&nbsp;' * int(quantity)
+                return f'{in_text}', ''
             else:
                 return f'<i>{description}</i>', ''
 
@@ -389,42 +395,50 @@ class EpiDoc2HTML(EpiDocTransformer):
             return '', ''
         if rend == 'diaeresis':
             if not parent == 'hi':
-                self.add_to_apparatus(f'{prefix}{text}\u0308{suffix} Pap.', origin)
+                if not self.is_searching_word_context:
+                    self.add_to_apparatus(f'{prefix}{text}\u0308{suffix} Pap.', origin)
                 return '', ''
             else:
                 return '', ''
         elif rend == 'asper':
             if not parent == 'hi':
                 if hi_children:
-                    self.add_to_apparatus(f'{prefix}{text}\u1F01{additional_diacritics}{suffix} Pap.', origin)
+                    if not self.is_searching_word_context:
+                        self.add_to_apparatus(f'{prefix}{text}\u1F01{additional_diacritics}{suffix} Pap.', origin)
                     return '', ''
                 else:
-                    self.add_to_apparatus(f'{prefix}{text}\u1F01{suffix} Pap.', origin)
+                    if not self.is_searching_word_context:
+                        self.add_to_apparatus(f'{prefix}{text}\u1F01{suffix} Pap.', origin)
                     return '', ''
             else:
                 return '', ''
         elif rend == 'acute':
             if not parent == 'hi':
-                self.add_to_apparatus(f'{prefix}{text}\u0301{suffix} Pap.', origin)
+                if not self.is_searching_word_context:
+                    self.add_to_apparatus(f'{prefix}{text}\u0301{suffix} Pap.', origin)
                 return '', ''
             else:
                 return '', ''
         elif rend == 'grave':
             if not parent == 'hi':
-                self.add_to_apparatus(f'{prefix}{text}\u1f70{suffix} Pap.', origin)
+                if not self.is_searching_word_context:
+                    self.add_to_apparatus(f'{prefix}{text}\u1f70{suffix} Pap.', origin)
                 return '', ''
             else:
                 return '', ''
         elif rend == 'circumflex':
-            self.add_to_apparatus(f'{prefix}{text}\u0342{suffix} Pap.', origin)
+            if not self.is_searching_word_context:
+                self.add_to_apparatus(f'{prefix}{text}\u0342{suffix} Pap.', origin)
             return '', ''
         elif rend == 'lenis':
             if not parent == 'hi':
                 if hi_children:
-                    self.add_to_apparatus(f'{prefix}{text}\u0313{additional_diacritics}{suffix} Pap.', origin)
+                    if not self.is_searching_word_context:
+                        self.add_to_apparatus(f'{prefix}{text}\u0313{additional_diacritics}{suffix} Pap.', origin)
                     return '', ''
                 else:
-                    self.add_to_apparatus(f'{prefix}{text}\u0313{suffix} Pap.', origin)
+                    if not self.is_searching_word_context:
+                        self.add_to_apparatus(f'{prefix}{text}\u0313{suffix} Pap.', origin)
                     return '', ''
             else:
                 return '', ''
@@ -632,7 +646,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             parent_has_navigable_strings = [content for content in parent.contents if isinstance(content, NavigableString)]
             if not parent_has_navigable_strings:
                 for key, value in self.ex_start_map.items():
-                    if key.startswith(text):
+                    if text.startswith(key):
                         self.add_to_apparatus(f'({self.convert(node)})', str(node))
                         node.clear()
                         return value, ''
@@ -641,7 +655,8 @@ class EpiDoc2HTML(EpiDocTransformer):
                     context = self.get_word_context(node)
                     prefix = context["prefix"]
                     suffix = context["suffix"]
-                    self.add_to_apparatus(f'{prefix}({self.convert(node)}){suffix}', str(node))
+                    if not self.is_searching_word_context:
+                        self.add_to_apparatus(f'{prefix}({self.convert(node)}){suffix}', str(node))
                     node.clear()
                     return ex_match_map[text], ''
         return '(', f'{cert_low})'
@@ -827,12 +842,15 @@ class EpiDoc2HTML(EpiDocTransformer):
                     app_symbol = app_symbol[rend]
                     text_symbol = app_symbol
         if description == 'punxit':
-            self.add_to_apparatus(f'{prefix}{app_symbol}{suffix} Pap.', '')
+            if not self.is_searching_word_context:
+                self.add_to_apparatus(f'{prefix}{app_symbol}{suffix} Pap.', '')
         else:
             if prefix:
-                self.add_to_apparatus(f'{description} post {prefix} Pap.', '')
+                if not self.is_searching_word_context:
+                    self.add_to_apparatus(f'{description} post {prefix} Pap.', '')
             else:
-                self.add_to_apparatus(f'{description} Pap.', '')
+                if not self.is_searching_word_context:
+                    self.add_to_apparatus(f'{description} Pap.', '')
         return f'{text_symbol}{unclear}', ''
 
     @staticmethod
@@ -841,7 +859,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     @staticmethod
     def figDesc(node: Tag):
-        return '(', ') '
+        return '<i>(', ')</i> '
 
     @staticmethod
     def foreign(node: Tag):

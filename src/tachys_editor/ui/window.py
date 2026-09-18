@@ -43,7 +43,7 @@ class TachysEditorWindow(QMainWindow):
         self.ai_mgr = AIManager()
         self.export_timer = QTimer()
         self.msg_awaiting_export = QMessageBox()
-        self.msg_awaiting_export.setWindowTitle("Preparing your XML Export")
+        self.msg_awaiting_export.setWindowTitle("Transformation in progress")
         self.msg_awaiting_export.setText("Please wait while your Leiden+ code is being transformed...")
         self.msg_awaiting_export.setStandardButtons(QMessageBox.StandardButton.NoButton)
         # Settings
@@ -248,6 +248,8 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(settings_menu, 'Preferences', lambda: self.preferences_dialog.show())
         # Changes Menu
         changes_menu = self.menubar.addMenu('Changes')
+        if not settings_mgr.general.feature_track_changes_:
+            changes_menu.menuAction().setVisible(False)
         changes_menu.setToolTipsVisible(True)
         track_changes_action = self.add_menu_action(changes_menu, 'Track Changes', lambda checked: self.start_tracking(checked), tooltip='Sets your current Leiden+ text as a reference and tracks changes')
         track_changes_action.setCheckable(True)
@@ -257,6 +259,7 @@ class TachysEditorWindow(QMainWindow):
         view_changes_action.setCheckable(True)
         self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log, tooltip='Export your changes to a file')
         self.add_menu_action(changes_menu, 'Reset Git', self.reset_git, tooltip='Resets all tracked files')
+        # Help Menu
         help_menu = self.menubar.addMenu('Help')
         self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', documentation_path, True))
         self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('Sigla, Special Characters, Scribal Punctuation & Glyphs', 'https://github.com/papyri/site-docs/blob/master/gtypes.md'))

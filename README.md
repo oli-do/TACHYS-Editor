@@ -4,8 +4,9 @@ It provides helpful functions to make encoding as simple, correct, and fast as p
 
 ## Main Features
 - **Live Debugging** with error highlighting for Leiden+ and EpiDoc XML
-- **Extended Leiden+ grammar** for features yet unsupported by the Papyrological Editor
+- **Extended Leiden+ grammar (Leiden++)** for features yet unsupported by the Papyrological Editor
 - **Improved Leiden+ grammar** with fixes for common issues
+- **EpiDoc-XML Injection**: Write hybrid mark-up code by injecting EpiDoc XML into your Leiden+ syntax
 - **Syntax Highlighting** for increased readability
 - **Character Whitelist for Various Languages**: Full support for Latin, Coptic, Ancient Greek (which, for instance, proactively avoids typos produced by confusing Latin and Greek characters)
 - **Keyboard Shortcuts** for frequently used Leiden+ expressions
@@ -14,10 +15,10 @@ It provides helpful functions to make encoding as simple, correct, and fast as p
 - **Automatic Numeral Conversion** (according to the Byzantine system)<sup>2</sup>
 - **IntelliPaste** featuring automatic lunate sigma conversion and much more when text is pasted<sup>2</sup>
 - **Prediction of Orthographic Regularizations** based on highly performant machine-learning techniques<sup>1</sup> <sup>2</sup>
-- **Change Tracking** for peer review (view changes, export changes, import changes)<sup>1</sup>
 - **Leiden+ to XML conversion**: Convert your texts into TEI-XML according to the EpiDoc guidelines
 - **XML to Leiden+ conversion**: Integrate your Leiden+ encoded text directly into the TEI structure
-- **EpiDoc-XML Injection**: Write hybrid mark-up code by injecting EpiDoc XML into your Leiden+ syntax
+- **XML to HTML conversion**: View encoded text in your browser
+- **Git-based Change Tracking** for peer review (view changes, export changes, import changes)<sup>1</sup>
 
 <sup>1</sup> Feature in development - works but has not yet reached the intended quality.  
 <sup>2</sup> Feature currently supports only Ancient Greek
@@ -41,9 +42,11 @@ sudo apt-get install xclip
 ```
 
 **Windows, Linux and MacOS:**
-- Install [git](https://git-scm.com/) (TACHYS uses [GitPython](https://pypi.org/project/GitPython/0.3.2/) for change tracking)
-- Download and run a pre-built executable from "Releases" <u><b>or</b></u> Download and run the source code (main.py) after installing the requirements listed in requirements.txt
-- Recommended: Install [IFAO-Grec Unicode](https://wiki.digitalclassicist.org/IFAOGrec_Unicode)
+- **Required**: Download and run a pre-built executable from "Releases" <u><b>or</b></u> Download and run the source code (main.py) after installing the requirements listed in requirements.txt
+- **Recommended**: Install the font [IFAO-Grec Unicode](https://wiki.digitalclassicist.org/IFAOGrec_Unicode)
+- <i>Optional: Install [git](https://git-scm.com/) to enable change tracking features (TACHYS uses [GitPython](https://pypi.org/project/GitPython/0.3.2/) for change tracking).
+When git is installed, a menu action called "Changes" should automatically appear in the menu bar. An application 
+restart may be required.</i>
 
 ### How to encode faster with TACHYS
 - Use shortcuts on marked text (e.g. Ctrl+0 will instantly apply numeral markup)
@@ -62,13 +65,10 @@ The OS-specific *user_data_directory* (cf. [appdirs](https://pypi.org/project/ap
 
 ## Planned Features
 (*Ranked from higher to lower priority*)
-- Direct submissions to the idp.data GitHub repository
 - Metadata Editor
-- Change tracking overhaul
-- HTML preview
 - AI integration
 - Change all line numbers within a \<div>
-- Tag system for references similar to abbreviations used in papyrological editions (e.g. Pr for Preisendanz)
+- Change tracking overhaul
 
 
 ## Known Issues
