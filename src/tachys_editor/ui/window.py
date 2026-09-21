@@ -74,15 +74,16 @@ class TachysEditorWindow(QMainWindow):
         else:
             self.new_file()
 
-    def get_menu_action(self, parent, action_name: str):
+    def get_menu_action(self, parent, action_name: str) -> QAction:
         for action in parent.actions():
             if action.text() == action_name:
                 return action
             if action.menu():
-                result = self.get_menu_action(action.menu(), action_name)
-                if result:
-                    return result
-        return None
+                try:
+                    return self.get_menu_action(action.menu(), action_name)
+                except KeyError:
+                    pass
+        raise KeyError(f'get_menu_action: Did not find {action_name} in menu.')
 
     @staticmethod
     def set_checked_no_signal(action, checked: bool):
@@ -403,7 +404,7 @@ class TachysEditorWindow(QMainWindow):
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.exec()
 
-    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut = None, tooltip: str = None):
+    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable | None = None, shortcut = None, tooltip: str = ''):
         action = QAction(action_name, self)
         if shortcut:
             action.setShortcut(shortcut)
@@ -447,6 +448,7 @@ class TachysEditorWindow(QMainWindow):
         self.saving_enabled = True
         self.set_checked_no_signal(self.action_view_changes, False)
         self.editor.debug_worker.set_previous_text('')
+        self.editor.debug_worker.xml_lines = {}
         self.editor.setReadOnly(False)
         self.editor.continue_debugging()
 
@@ -501,7 +503,7 @@ class TachysEditorWindow(QMainWindow):
                     self.tracker.request_active(self.get_tracked_file_name())
                     text = file_content
             else:
-                text = self.ed_transformer.transform(path)
+                text = self.ed_transformer.transform(Path(path))
                 msg = QMessageBox()
                 if not text:
                     msg.setWindowTitle('CONVERSION ERROR')

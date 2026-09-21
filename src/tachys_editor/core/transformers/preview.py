@@ -1,4 +1,6 @@
 import html
+import unicodedata
+import difflib
 from pathlib import Path
 
 import re
@@ -9,7 +11,7 @@ from tachys_editor.core.transformers.preview_helper import (g_type_map, expan_ma
                             create_html_output, map_resp_nodes, remove_diacritics_punctuation)
 from tachys_editor.shared.transformer_helper import validate_epidoc_tei
 from bs4 import BeautifulSoup
-from bs4 import Tag, NavigableString
+from bs4.element import Tag, NavigableString
 
 class EpiDoc2HTML(EpiDocTransformer):
 
@@ -43,6 +45,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                         self.text += self.transform_node(main_div)
                     except EssentialAttributeMissingException:
                         return ''
+                    print(self.text)
                     apparatus = self.generate_apparatus() if self.apparatus_dict else ''
                     lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
                     lines = draw_lost_lines_extent_unknown(lines)
@@ -91,6 +94,8 @@ class EpiDoc2HTML(EpiDocTransformer):
 
             suffix = re.sub(r'<.*?>', '', suffix)
             prefix = re.sub(r'<.*?>', '', prefix)
+            prefix = re.sub(r'[0-9]+', '', prefix)
+            suffix = re.sub(r'[0-9]+', '', suffix)
             if prefix.endswith((' ', ' |')):
                 prefix = ''
             if suffix.startswith((' ', '| ')):
@@ -163,12 +168,25 @@ class EpiDoc2HTML(EpiDocTransformer):
         for key, values in self.apparatus_dict.items():
             results = []
             last_origin = 'last_origin'
+            last_text = ''
             index = 0
             for val in values:
                 origin, text = list(val.items())[0]
                 if origin == last_origin:
-                    results.append(':')
-                    results.append(text)
+                    if last_text.endswith('Pap.') and text.endswith('Pap.'):
+                        last_text = unicodedata.normalize('NFD', last_text)
+                        text = unicodedata.normalize('NFD', text)
+                        sm = difflib.SequenceMatcher(None, last_text, text)
+                        merged = []
+                        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+                            if tag == "equal":
+                                merged.append(last_text[i1:i2])
+                            elif tag in ("replace", "insert", "delete"):
+                                merged.append(last_text[i1:i2] + text[j1:j2])
+                        results[-1] = unicodedata.normalize("NFC", "".join(merged))
+                    else:
+                        results.append(':')
+                        results.append(text)
                 else:
                     if index > 0:
                         results.append('|')
@@ -177,6 +195,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                     results.append(text)
                 index += 1
                 last_origin = origin
+                last_text = text
             lines.append(' '.join(results))
         return '<p style="font-size:9px;">' + ' ‖ '.join(lines) + '</p>\n'
 
@@ -556,7 +575,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                 if unit:
                     return 'lost.?lin', ''
                 else:
-                   return f'{gap_start} {quantity} {gap_end}', ''
+                   return f'{gap_start} ? {gap_end}', ''
             else:
                 if not unit:
                     if precision_low:
@@ -583,7 +602,7 @@ class EpiDoc2HTML(EpiDocTransformer):
         attrs = node.attrs
         reason = str(attrs['reason'])
         if 'cert' in attrs:
-            cert_low = '?'
+            cert_low = '(?)'
         else:
             cert_low = ''
         if reason == 'omitted':
@@ -815,6 +834,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     def g(self, node: Tag):
         context = self.get_word_context(node)
+        origin = context['full_word']
         prefix = context['prefix']
         prefix = remove_diacritics_punctuation(prefix)
         suffix = context['suffix']
@@ -843,14 +863,14 @@ class EpiDoc2HTML(EpiDocTransformer):
                     text_symbol = app_symbol
         if description == 'punxit':
             if not self.is_searching_word_context:
-                self.add_to_apparatus(f'{prefix}{app_symbol}{suffix} Pap.', '')
+                self.add_to_apparatus(f'{prefix}{app_symbol}{suffix} Pap.', origin)
         else:
             if prefix:
                 if not self.is_searching_word_context:
-                    self.add_to_apparatus(f'{description} post {prefix} Pap.', '')
+                    self.add_to_apparatus(f'{description} post {prefix} Pap.', origin)
             else:
                 if not self.is_searching_word_context:
-                    self.add_to_apparatus(f'{description} Pap.', '')
+                    self.add_to_apparatus(f'{description} Pap.', origin)
         return f'{text_symbol}{unclear}', ''
 
     @staticmethod

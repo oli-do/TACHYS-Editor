@@ -235,7 +235,9 @@ class LeidenPlusTransformer(Transformer):
 
     @v_args(inline=True)
     def lines_lost(self, precision, quantity, unit, cert_match):
-        return inner_xml('<gap reason="lost"', [precision, quantity, unit], '/>') + str(cert_match)
+        if not cert_match:
+            cert_match = ''
+        return inner_xml('<gap reason="lost"', [precision, quantity, unit], '/>') + cert_match
 
     def illegible(self, children):
         precision = children[0]

@@ -60,6 +60,7 @@ g_type_map: dict = {
     }
 
 expan_map: dict = {
+    "κ": "ϗ",
     "θ": "☉",
     "γι": "",
     "γρ": "",
@@ -81,7 +82,6 @@ ex_start_map: dict = {
     "δραχμ": "",
     "σελην": "",
     "ουραν": "",
-    "και": "ϗ",
     "ηλι": "",
 }
 
@@ -123,14 +123,14 @@ def draw_lost_lines_extent_unknown(lines: list[str]):
         lines[i] = lines[i].replace('lost.?lin', lost_lin_symbol)
     return lines
 
-def draw_gaps(lines: list[str]):
+def draw_gaps(lines: list[str] | str):
+    if isinstance(lines, str):
+        lines = [lines]
     for i in range(len(lines)):
         lines[i] = lines[i].strip()
-        line = lines[i]
-        if line.endswith('[ ? ]'):
-            lines[i] = line[:-4]
-        if line.startswith('[ ? ]'):
-            lines[i] = line[4:]
+        lines[i] = re.sub(r'\[ \? ]$', '[', lines[i])
+        lines[i] = re.sub(r'<td>\[ \? ]', '<td>]', lines[i])
+        lines[i] = re.sub(r'<td>\[', '<td>', lines[i])
         lines[i] = re.sub(r']( +)\[', r'\1', lines[i])
     return lines
 
