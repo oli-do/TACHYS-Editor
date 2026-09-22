@@ -90,9 +90,10 @@ ex_match_map: dict = {
 }
 
 def remove_diacritics_punctuation(text: str):
+    text = re.sub(r'<.*?>', '', text)
     normalized = unicodedata.normalize('NFD', text)
-    clean_text = "".join(ch for ch in normalized if unicodedata.category(ch) != 'Mn')
-    clean_text = re.sub(r'[^\w\s]', '', clean_text)
+    clean_text = "".join(ch for ch in normalized if unicodedata.category(ch) != 'Mn' or ch == "'")
+    clean_text = re.sub(r"[^\w\s']", '', clean_text)
     return unicodedata.normalize('NFC', clean_text)
 
 def draw_lost_lines_extent_unknown(lines: list[str]):
@@ -128,11 +129,29 @@ def draw_gaps(lines: list[str] | str):
         lines = [lines]
     for i in range(len(lines)):
         lines[i] = lines[i].strip()
-        lines[i] = re.sub(r'\[ \? ]$', '[', lines[i])
         lines[i] = re.sub(r'<td>\[ \? ]', '<td>]', lines[i])
-        lines[i] = re.sub(r'<td>\[', '<td>', lines[i])
-        lines[i] = re.sub(r']( +)\[', r'\1', lines[i])
+        lines[i] = re.sub(r'\[ \? ]$', '[', lines[i])
+        lines[i] = re.sub(r']( *)\[', r'\1', lines[i])
     return lines
+
+def combine_div_name(start_div: Tag):
+    combined_names = []
+    divs = start_div.find_parents('div', attrs={'type': 'textpart'})
+    divs = list(reversed(divs))
+    divs.append(start_div)
+    for div in divs:
+        attrs = div.attrs
+        n = str(attrs['n'])
+        if 'subtype' in attrs:
+            subtype = str(attrs['subtype'])
+            combined_names.append(f'{subtype} {n}')
+        else:
+            if n == 'v':
+                n = 'verso'
+            elif n == 'r':
+                n = 'recto'
+            combined_names.append(f'{n}')
+    return ' '.join(combined_names)
 
 def map_resp_nodes(main_div: Tag):
     resp_nodes = main_div.find_all(None, attrs={'resp': True}, recursive=True)
@@ -177,17 +196,23 @@ def create_html_output(text: str, resp_map: dict[str, str]):
     commentary = '<p>This text has been created with TACHYS Editor.</p>\n'
     commentary += f'\n<p>{', '.join([f'{key} [{val}]' for key, val in resp_map.items()])}</p>'
     html_output = (
-                      '<!DOCTYPE html><html style="margin:0; padding:0; height:100%; width:100%; ">'
+                      '<!DOCTYPE html><html style="'
+                      'margin:0; '
+                      'padding-top: 0.5cm; '
+                      'height:100%; '
+                      'width:100%; '
+                      '">'
                       '<body style="margin:0; padding:0; height:100%; width:100%; display:grid; place-items:center; background:#f0f0f0;">'
                       '<div style="'
                       'font-family:IFAO-Grec Unicode; '
                       'font-size:11px; '
                       'width:21cm; '
-                      'border:2px solid black; '
+                      'border:0.5px solid gray; '
                       'transform: scale(min(100vw / 21cm, 100vh / 29.7cm)); '
                       'transform-origin: center; '
                       'background: white; '
                       'padding: 2.54cm; '
                       'box-sizing: border-box; '
+                      'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); '
                       '">') + title + commentary + text + '</div></body></html>'
     return html_output

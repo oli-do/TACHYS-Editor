@@ -7,7 +7,7 @@ import re
 from tachys_editor.core.transformers.xml_transformer import EpiDocTransformer
 from tachys_editor.shared.transformer_helper import EssentialAttributeMissingException
 from tachys_editor.core.transformers.preview_helper import (g_type_map, expan_map, ex_start_map, ex_match_map,
-                            draw_lost_lines_extent_unknown, draw_gaps,
+                            draw_lost_lines_extent_unknown, draw_gaps, combine_div_name,
                             create_html_output, map_resp_nodes, remove_diacritics_punctuation)
 from tachys_editor.shared.transformer_helper import validate_epidoc_tei
 from bs4 import BeautifulSoup
@@ -22,6 +22,7 @@ class EpiDoc2HTML(EpiDocTransformer):
         self.ex_start_map = dict(sorted(ex_start_map.items(), key=lambda x: len(x[0]), reverse=True))
         self.resp_map: dict = {}
         self.is_searching_word_context = False
+        self.previous_lb_num = -1
 
     def reset(self):
         self.text = ''
@@ -45,7 +46,6 @@ class EpiDoc2HTML(EpiDocTransformer):
                         self.text += self.transform_node(main_div)
                     except EssentialAttributeMissingException:
                         return ''
-                    print(self.text)
                     apparatus = self.generate_apparatus() if self.apparatus_dict else ''
                     lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
                     lines = draw_lost_lines_extent_unknown(lines)
@@ -203,21 +203,19 @@ class EpiDoc2HTML(EpiDocTransformer):
     def div(self, node: Tag):
         attrs = node.attrs
         div_type = str(attrs['type'])
+        has_div_children = bool([child for child in node.children if isinstance(child, Tag) and child.name == 'div'])
+        if has_div_children:
+            return '', ''
+        else:
+            name = combine_div_name(node)
+            style_opening = '</br><hr/><br/><h3>'
+            style_closing = '</h3>'
         if div_type == 'textpart':
             apparatus = ''
             if self.apparatus_dict:
                 apparatus = self.generate_apparatus()
             self.apparatus_dict = {}
-            n = str(attrs['n'])
-            if 'subtype' in attrs:
-                subtype = str(attrs['subtype'])
-                return f'{apparatus}<h3>{subtype} {n}</h3>', ''
-            else:
-                if n == 'v':
-                    n = 'verso ↓'
-                elif n == 'r':
-                    n = 'recto →'
-                return f'{apparatus}<h3>{n}</h3>', ''
+            return f'{apparatus}{style_opening}{name}{style_closing}', ''
         elif div_type == 'edition':
             return '', ''
         else:
@@ -240,8 +238,13 @@ class EpiDoc2HTML(EpiDocTransformer):
         except KeyError:
             return self.essential_attribute_missing(node, 'n')
         try:
-            lb_n = int(lb_n)
-            if not lb_n % 5 == 0:
+            keep_lb = False
+            lb_num = int(lb_n)
+            if self.previous_lb_num == -1 or lb_num == self.previous_lb_num:
+                self.previous_lb_num = lb_num - 1
+            if not abs(lb_num - self.previous_lb_num) == 1:
+                keep_lb = True
+            if not lb_num % 5 == 0 and not keep_lb:
                 lb_n = ''
             sibling = node.next_sibling
             if isinstance(sibling, Tag):
@@ -249,6 +252,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                     if 'extent' in sibling.attrs:
                         if sibling.attrs['unit'] == 'line':
                             lb_n = ''
+            self.previous_lb_num = lb_num
         except ValueError:
             pass
         parent = node.parent.name
@@ -324,7 +328,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             except ValueError:
                 return f'<i>{description}</i>', ''
         elif 'extent' in attrs:
-            return f'vac.{unit}', ''
+            return f'<i> vacat </i>', ''
         else:
             try:
                 quantity = str(attrs['quantity'])
@@ -341,6 +345,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     def add(self, node: Tag):
         attrs = node.attrs
+        text = self.convert(node)
         try:
             place = str(attrs['place'])
         except KeyError:
@@ -354,18 +359,21 @@ class EpiDoc2HTML(EpiDocTransformer):
         elif place == 'below':
             return '<sub>', f'{cert_low}</sub>'
         elif place == 'left':
-            return '||left:', f'{cert_low}||'
+            self.add_to_apparatus(f'in marg. sin. {text}{cert_low}', str(node))
+            return '', ''
         elif place == 'right':
-            return '||right:', f'{cert_low}||'
+            self.add_to_apparatus(f'in marg. dext. {text}{cert_low}', str(node))
+            return '', ''
         elif place == 'interlinear':
-            return '||interlin:', f'{cert_low}||'
+            self.add_to_apparatus(f'supra l. {text}{cert_low}', str(node))
+            return '', ''
         elif place == 'margin':
             try:
                 rend = str(attrs['rend'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'rend')
             if rend == 'sling':
-                return '<|', f'{cert_low}|>'
+                return '', ''
             elif rend == 'underline':
                 return '<u>', f'{cert_low}</u>'
             else:
@@ -823,14 +831,14 @@ class EpiDoc2HTML(EpiDocTransformer):
     @staticmethod
     def num(node: Tag):
         if 'rend' in node.attrs:
-            rend = " '"
+            rend = "'"
         else:
             rend = ""
         if 'value' in node.attrs:
             value = str(node.attrs['value'])
         else:
             value = ''
-        return f'<span title="{value}">{rend}', '</span>'
+        return f'<span title="{value}">', f'{rend}</span>'
 
     def g(self, node: Tag):
         context = self.get_word_context(node)
