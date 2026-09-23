@@ -6,7 +6,7 @@ from typing import Literal
 import lark.exceptions
 
 from ..shared.grammar import build_text_rules
-from .transformer import LeidenPlusTransformer
+from .transformers.leiden_plus_transformer import LeidenPlusTransformer
 
 import unicodedata
 from lark import Lark, exceptions
@@ -15,7 +15,7 @@ from lark import Lark, exceptions
 grammar_path = str(files('tachys_editor.resources').joinpath('leiden_plus.lark'))
 
 
-def find_multiline_pairs(lines: list[str], opening: str, closing: str = None):
+def find_multiline_pairs(lines: list[str], opening: str, closing: str = ''):
     stack = []
     pairs = []
     len_opening = len(opening)

@@ -1,6 +1,8 @@
 import json
 import os
 import uuid
+import webbrowser
+import tempfile
 from os.path import basename
 from pathlib import Path
 from typing import Callable
@@ -14,9 +16,13 @@ from .editor import TachysEditor
 from .docks import BottomDock
 from ..core.change_tracker import ChangeTracker
 from ..core.parser import TachysParser
-from ..core.transformer import LeidenPlusTransformer, EpiDocTransformer, TEIBuilder
+from ..core.transformers.leiden_plus_transformer import LeidenPlusTransformer
+from ..core.transformers.xml_transformer import EpiDocTransformer
+from ..core.transformers.tei_builder import TEIBuilder
+from ..core.transformers.preview import EpiDoc2HTML
 from ..core.ai import AIManager
 from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
+from ..shared.transformer_helper import validate_epidoc_tei
 from .preferences import PreferencesDialog
 
 from importlib.resources import files
@@ -31,12 +37,13 @@ class TachysEditorWindow(QMainWindow):
         self.parser = TachysParser()
         self.lp_transformer = LeidenPlusTransformer()
         self.ed_transformer = EpiDocTransformer()
+        self.html_transformer = EpiDoc2HTML()
         self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
         self.export_timer = QTimer()
         self.msg_awaiting_export = QMessageBox()
-        self.msg_awaiting_export.setWindowTitle("Preparing your XML Export")
+        self.msg_awaiting_export.setWindowTitle("Transformation in progress")
         self.msg_awaiting_export.setText("Please wait while your Leiden+ code is being transformed...")
         self.msg_awaiting_export.setStandardButtons(QMessageBox.StandardButton.NoButton)
         # Settings
@@ -67,15 +74,16 @@ class TachysEditorWindow(QMainWindow):
         else:
             self.new_file()
 
-    def get_menu_action(self, parent, action_name: str):
+    def get_menu_action(self, parent, action_name: str) -> QAction:
         for action in parent.actions():
             if action.text() == action_name:
                 return action
             if action.menu():
-                result = self.get_menu_action(action.menu(), action_name)
-                if result:
-                    return result
-        return None
+                try:
+                    return self.get_menu_action(action.menu(), action_name)
+                except KeyError:
+                    pass
+        raise KeyError(f'get_menu_action: Did not find {action_name} in menu.')
 
     @staticmethod
     def set_checked_no_signal(action, checked: bool):
@@ -235,11 +243,14 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(submenu_zoom, 'Zoom Out', self.editor.zoomOut, shortcuts.zoom_out, tooltip='Alternatively: Ctrl+Mousewheel Down')
         view_menu.addMenu(submenu_zoom)
         self.add_menu_action(view_menu, 'Problems', lambda: self.bottom_dock.setVisible(True))
+        self.add_menu_action(view_menu, 'Preview (HTML)', lambda: self.export_to_xml(True))
         # Settings Menu
         settings_menu = self.menuBar().addMenu('Settings')
         self.add_menu_action(settings_menu, 'Preferences', lambda: self.preferences_dialog.show())
         # Changes Menu
         changes_menu = self.menubar.addMenu('Changes')
+        if not settings_mgr.general.feature_track_changes_:
+            changes_menu.menuAction().setVisible(False)
         changes_menu.setToolTipsVisible(True)
         track_changes_action = self.add_menu_action(changes_menu, 'Track Changes', lambda checked: self.start_tracking(checked), tooltip='Sets your current Leiden+ text as a reference and tracks changes')
         track_changes_action.setCheckable(True)
@@ -249,6 +260,7 @@ class TachysEditorWindow(QMainWindow):
         view_changes_action.setCheckable(True)
         self.add_menu_action(changes_menu, 'Export Change Log', self.export_change_log, tooltip='Export your changes to a file')
         self.add_menu_action(changes_menu, 'Reset Git', self.reset_git, tooltip='Resets all tracked files')
+        # Help Menu
         help_menu = self.menubar.addMenu('Help')
         self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', documentation_path, True))
         self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('Sigla, Special Characters, Scribal Punctuation & Glyphs', 'https://github.com/papyri/site-docs/blob/master/gtypes.md'))
@@ -351,9 +363,9 @@ class TachysEditorWindow(QMainWindow):
         text = self.editor.toPlainText()
         self.save_file(True, text, '*.txt')
 
-    def export_to_xml(self):
+    def export_to_xml(self, preview: bool=False):
         if self.editor.debug_worker.is_running or self.editor.debug_timer.isActive():
-            self.export_timer.singleShot(500, self.export_to_xml)
+            self.export_timer.singleShot(500, lambda: self.export_to_xml(preview))
             if not self.msg_awaiting_export.isVisible():
                 self.msg_awaiting_export.setVisible(True)
             return
@@ -368,12 +380,21 @@ class TachysEditorWindow(QMainWindow):
             xml = self.tei_builder.build_from_origin(inner_body, self.xml_origin)
         else:
             xml = self.tei_builder.build_placeholder(inner_body)
-        if self.lp_transformer.is_valid_tei(xml) is not None:
-            self.save_file(True, xml, '*.xml')
+        is_valid_tei, info = validate_epidoc_tei(xml)
+        if is_valid_tei:
+            if not preview:
+                self.save_file(True, xml, '*.xml')
+            else:
+                html_out = self.html_transformer.transform(xml)
+                with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False, encoding='utf-8') as f:
+                    f.write(html_out)
+                    temp_file_name = f.name
+                webbrowser.open('file://' + os.path.abspath(temp_file_name))
+                self.export_timer.singleShot(5000, lambda: os.remove(temp_file_name))
         else:
             msg = QMessageBox()
             msg.setWindowTitle('Export Failed')
-            error = self.lp_transformer.errors[0]
+            error = info[0]
             if 'tag mismatch' in error:
                 msg.setText('XML Syntax Error.\n\nThis was likely caused by malformed Leiden+ code that could not be '
                             'recognized as an error. Check your Leiden+ syntax.')
@@ -383,7 +404,7 @@ class TachysEditorWindow(QMainWindow):
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.exec()
 
-    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable = None, shortcut = None, tooltip: str = None):
+    def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable | None = None, shortcut = None, tooltip: str = ''):
         action = QAction(action_name, self)
         if shortcut:
             action.setShortcut(shortcut)
@@ -427,6 +448,7 @@ class TachysEditorWindow(QMainWindow):
         self.saving_enabled = True
         self.set_checked_no_signal(self.action_view_changes, False)
         self.editor.debug_worker.set_previous_text('')
+        self.editor.debug_worker.xml_lines = {}
         self.editor.setReadOnly(False)
         self.editor.continue_debugging()
 
@@ -469,19 +491,23 @@ class TachysEditorWindow(QMainWindow):
                             self.set_checked_no_signal(self.action_track_changes, False)
                     text = data[2]
                 elif data[0] == file_content:
-                    json_content = json.loads(file_content)
-                    self.file_id = json_content['id']
-                    self.xml_origin = json_content['xml_origin']
-                    if self.tracker.request_active(self.get_tracked_file_name()):
-                        self.set_checked_no_signal(self.action_track_changes, True)
-                    else:
-                        self.set_checked_no_signal(self.action_track_changes, False)
-                    text = json_content['text']
+                    try:
+                        json_content = json.loads(file_content)
+                        self.file_id = json_content['id']
+                        self.xml_origin = json_content['xml_origin']
+                        if self.tracker.request_active(self.get_tracked_file_name()):
+                            self.set_checked_no_signal(self.action_track_changes, True)
+                        else:
+                            self.set_checked_no_signal(self.action_track_changes, False)
+                        text = json_content['text']
+                    except json.JSONDecodeError:
+                        self.tracker.request_active(self.get_tracked_file_name())
+                        text = file_content
                 else:
                     self.tracker.request_active(self.get_tracked_file_name())
                     text = file_content
             else:
-                text = self.ed_transformer.transform(path)
+                text = self.ed_transformer.transform(Path(path))
                 msg = QMessageBox()
                 if not text:
                     msg.setWindowTitle('CONVERSION ERROR')
@@ -562,3 +588,4 @@ class TachysEditorWindow(QMainWindow):
         self.update_settings()
         if self.file_path.endswith('.leiden') and settings_mgr.general.auto_save_on_exit:
             self.save_file(False, self.create_leiden_file())
+        self.editor.debug_worker.debug_executor.shutdown(wait=False, cancel_futures=True)

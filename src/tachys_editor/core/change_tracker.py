@@ -1,18 +1,23 @@
 import os
 import re
 import glob
-
-import git
+from tachys_editor.shared.settings import settings_mgr
+try:
+    import git
+    settings_mgr.general.feature_track_changes_ = True
+except ImportError:
+    settings_mgr.general.feature_track_changes_ = False
 
 
 class ChangeTracker:
     def __init__(self, repo_path):
         self.active = False
         self.repo_path = repo_path
-        if not os.path.exists(os.path.join(repo_path, '.git')):
-            self.repo = git.Repo.init(repo_path)
-        else:
-            self.repo = git.Repo(repo_path)
+        if settings_mgr.general.feature_track_changes_:
+            if not os.path.exists(os.path.join(repo_path, '.git')):
+                self.repo = git.Repo.init(repo_path)
+            else:
+                self.repo = git.Repo(repo_path)
 
     def write_changes(self, file_name, content):
         file_path = os.path.join(self.repo_path, file_name)
