@@ -121,7 +121,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(submenu_apparatus, 'Alternate Reading (multiple)', lambda: self.insert_str('<:{text}||alt||α|β:>'))
         self.add_menu_action(submenu_apparatus, 'Editorial Correction', lambda: self.insert_str('<:{text}|ed|:>'))
         self.add_menu_action(submenu_apparatus, 'Editorial Correction (multiple)', lambda: self.insert_str('<:{text}||ed||α|β:>'))
-        self.add_menu_action(submenu_apparatus, 'Orthographic Regularization', lambda: self.insert_str('', 'reg'))
+        self.add_menu_action(submenu_apparatus, 'Orthographic Regularization', lambda: self.insert_str('', 'reg'), shortcuts.orthographic_regularization)
         self.add_menu_action(submenu_apparatus, 'Orthographic Regularization (multiple)', lambda: self.insert_str('<:α|β||reg||{text}:>'))
         self.add_menu_action(submenu_apparatus, 'Scribal Correction', lambda: self.insert_str('<:{text}|subst|:>'))
         self.add_menu_action(submenu_apparatus, 'Spelling Correction', lambda: self.insert_str('<:|corr|{text}:>'))
@@ -423,8 +423,9 @@ class TachysEditorWindow(QMainWindow):
         if not sender:
             string = string.format(text=text)
         elif sender == 'reg':
-            prediction = self.ai_mgr.predict_reg(text)
-            string = f'<:{prediction}|reg|{text}:>'
+            cursor_rect = self.editor.cursorRect()
+            cursor_global_pos = self.editor.viewport().mapToGlobal(cursor_rect.bottomLeft())
+            string = self.ai_mgr.predict_reg(text, cursor_global_pos)
         cursor.insertText(string)
         if sender == 'reg':
             cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, len(text) + 8)

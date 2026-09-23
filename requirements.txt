@@ -9,3 +9,4 @@ appdirs~=1.4.4
 scikit-learn~=1.8.0
 beautifulsoup4~=4.15.0
 lxml~=6.1.2
+numpy~=2.4.6

@@ -63,6 +63,7 @@ class EditorShortcuts:
     supralinear_stroke_alt: str = field(default='Ctrl+Shift+L')
     handshift: str = field(default='Ctrl+H')
     underdot: str = field(default='Ctrl+U')
+    orthographic_regularization: str = field(default='Ctrl+R')
 
 @dataclass
 class EditorSettings:
