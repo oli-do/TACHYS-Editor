@@ -1,13 +1,16 @@
 from importlib.resources import files
+from PySide6.QtWidgets import QMenu
 import joblib
 import unicodedata
 import regex
+import numpy as np
 
 regs_model = str(files('tachys_editor.resources.models').joinpath('predict_regs.joblib'))
 
 class AIManager:
     def __init__(self):
         self.regs_pipeline = joblib.load(regs_model)
+        self.context_menu = QMenu()
 
     @staticmethod
     def normalize(text):
@@ -16,10 +19,25 @@ class AIManager:
         nfc_text = unicodedata.normalize('NFC', stripped)
         return ''.join(regex.findall(r'[Α-Ωα-ω]', nfc_text))
 
-    def predict_reg(self, word: str):
+    def predict_reg(self, word: str, context_menu_position):
+        self.context_menu.clear()
         normalized_word = self.normalize(word)
-        print('execute prediction', type(self.regs_pipeline), normalized_word)
-        prediction = self.regs_pipeline.predict([self.normalize(normalized_word)])
-        if prediction:
-            return prediction[0]
-        return ''
+        probabilities = self.regs_pipeline.predict_proba([normalized_word])[0]
+        all_classes = self.regs_pipeline.named_steps['kneighborsclassifier'].classes_
+        top_indices = np.argsort(probabilities)[::-1][:10]
+        results = []
+        for idx in top_indices:
+            prob = probabilities[idx]
+            if prob > 0.01:
+                option = str(all_classes[idx])
+                self.context_menu.addAction(f'<:{option}|reg|{word}:>')
+                results.append(option)
+        predicted_reg = ''
+        if results:
+            if len(results) > 1:
+                choice = self.context_menu.exec(context_menu_position)
+                if choice:
+                    return choice.text()
+            else:
+                predicted_reg = results[0]
+        return f'<:{predicted_reg}|reg|{word}:>'

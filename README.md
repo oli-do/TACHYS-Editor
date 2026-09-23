@@ -14,10 +14,10 @@ It provides helpful functions to make encoding as simple, correct, and fast as p
 - **Automatic \<div> Numbering**
 - **Automatic Numeral Conversion** (according to the Byzantine system)<sup>2</sup>
 - **IntelliPaste** featuring automatic lunate sigma conversion and much more when text is pasted<sup>2</sup>
-- **Prediction of Orthographic Regularizations** based on highly performant machine-learning techniques<sup>1</sup> <sup>2</sup>
+- **Prediction of Orthographic Regularizations** based on highly performant machine-learning techniques
 - **Leiden+ to XML conversion**: Convert your texts into TEI-XML according to the EpiDoc guidelines
 - **XML to Leiden+ conversion**: Integrate your Leiden+ encoded text directly into the TEI structure
-- **XML to HTML conversion**: View encoded text in your browser
+- **HTML preview**: View a digital edition of your text in your browser
 - **Git-based Change Tracking** for peer review (view changes, export changes, import changes)<sup>1</sup>
 
 <sup>1</sup> Feature in development - works but has not yet reached the intended quality.  
