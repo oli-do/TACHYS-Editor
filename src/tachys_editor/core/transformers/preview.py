@@ -7,7 +7,7 @@ import re
 from tachys_editor.core.transformers.xml_transformer import EpiDocTransformer
 from tachys_editor.shared.transformer_helper import EssentialAttributeMissingException
 from tachys_editor.core.transformers.preview_helper import (g_type_map, expan_map, ex_start_map, ex_match_map,
-                            draw_lost_lines_extent_unknown, draw_gaps, combine_div_name,
+                            draw_lost_lines_extent_unknown, draw_gaps, combine_div_name, draw_hyphens,
                             create_html_output, map_resp_nodes, remove_diacritics_punctuation)
 from tachys_editor.shared.transformer_helper import validate_epidoc_tei
 from bs4 import BeautifulSoup
@@ -39,7 +39,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                 soup = BeautifulSoup(xml, 'lxml-xml')
             main_div = soup.find('div', attrs={'type': 'edition'})
             if main_div:
-                has_lines = main_div.find('lb')
+                has_lines = main_div.find_all('lb')
                 if has_lines:
                     self.resp_map = map_resp_nodes(main_div)
                     try:
@@ -50,6 +50,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                     lines = [str(line) for line in self.text.splitlines() if line is not None and str(line).strip()]
                     lines = draw_lost_lines_extent_unknown(lines)
                     lines = draw_gaps(lines)
+                    lines = draw_hyphens(lines, has_lines)
                     self.text = '\n'.join(lines) + apparatus
                     html_output = create_html_output(self.text, self.resp_map)
                     return html_output
@@ -208,7 +209,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             return '', ''
         else:
             name = combine_div_name(node)
-            style_opening = '</br><hr/><br/><h3>'
+            style_opening = '<br/><hr/><br/><h3>'
             style_closing = '</h3>'
         if div_type == 'textpart':
             apparatus = ''
@@ -228,10 +229,6 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     def lb(self, node: Tag):
         attrs = node.attrs
-        if 'break' in attrs:
-            lb_break = '-'
-        else:
-            lb_break = ''
         try:
             lb_n = str(attrs['n'])
             self.line_name = lb_n
@@ -256,27 +253,29 @@ class EpiDoc2HTML(EpiDocTransformer):
         except ValueError:
             pass
         parent = node.parent.name
-        if parent in ['reg', 'orig', 'lem', 'rdg', 'corr', 'sic']:
+        if parent in ['reg', 'orig', 'lem']:
             new_line = ''
         else:
             new_line = '\n'
+        if parent in ['del', 'rdg', 'corr', 'reg']:
+            return '|', ''
         close_tr = '</tr>'
         if parent == 'ab':
             close_tr = ''
         if not 'rend' in attrs:
-            return f'{lb_break}{close_tr}{new_line}<tr><td style="padding-right: 30px;">{lb_n}</td><td>', ''
+            return f'{close_tr}{new_line}<tr><td class="lb" style="padding-right: 30px;">{lb_n}</td><td>', ''
         else:
             rend = attrs['rend']
             if rend == 'indent':
                 self.add_to_apparatus('in eisthesis', '')
-                return f'{lb_break}{close_tr}{new_line}<tr><td>{lb_n}</td><td style="padding-left: 30px;">', ''
+                return f'{close_tr}{new_line}<tr><td class="lb">{lb_n}</td><td style="padding-left: 30px;">', ''
             elif rend == 'outdent':
                 self.add_to_apparatus('in ekthesis', '')
             elif rend == 'inverse':
                 self.add_to_apparatus('inversum', '')
             elif rend == 'perpendicular':
                 self.add_to_apparatus('perpendicular in margin', '')
-            return f'{lb_break}{close_tr}{new_line}<tr><td>{lb_n}</td><td>', ''
+            return f'{close_tr}{new_line}<tr><td class="lb">{lb_n}</td><td>', ''
 
     def handShift(self, node: Tag):
         attrs = node.attrs
@@ -288,7 +287,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             new = attrs['new']
         except KeyError:
             return self.essential_attribute_missing(node, 'new')
-        return f'${new}{cert_low} ', ''
+        return f'<i>{new.title()}{cert_low}</i> ', ''
 
     @staticmethod
     def unclear(node: Tag):
@@ -309,7 +308,7 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             unit = ' lines'
         if 'precision' in attrs:
-            precision_low = ' c. '
+            precision_low = ' c.'
         else:
             precision_low = ''
         if 'atLeast' in node.attrs:
@@ -334,7 +333,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                 quantity = str(attrs['quantity'])
             except KeyError:
                 return self.essential_attribute_missing(node, 'quantity')
-            description = f'vac.{precision_low} {quantity}{unit}'
+            description = f'vac.{precision_low}{quantity}{unit}'
             self.add_to_apparatus(description, str(node))
             if not unit:
                 in_text = ''
@@ -529,7 +528,7 @@ class EpiDoc2HTML(EpiDocTransformer):
         except KeyError:
             return self.essential_attribute_missing(node, 'unit')
         if 'precision' in attrs:
-            precision_low = ' c. '
+            precision_low = ' c.'
         else:
             precision_low = ''
         if 'atLeast' in attrs:
@@ -628,10 +627,6 @@ class EpiDoc2HTML(EpiDocTransformer):
             self.unsupported_attribute_value(node, 'reason', reason)
             return '', ''
 
-    @staticmethod
-    def surplus(node: Tag):
-        return '{', '}'
-
     def deletion(self, node: Tag):
         try:
             rend = str(node.attrs['rend'])
@@ -650,6 +645,8 @@ class EpiDoc2HTML(EpiDocTransformer):
         for content in node.contents:
             if isinstance(content, NavigableString):
                 text += content
+            elif isinstance(content, Tag) and not content.name in ['expan', 'ex']:
+                text += self.convert(content)
         if text:
             text = remove_diacritics_punctuation(text)
             if text in expan_map:
@@ -670,7 +667,7 @@ class EpiDoc2HTML(EpiDocTransformer):
         if text:
             text = remove_diacritics_punctuation(text)
             parent = node.find_parent('expan')
-            parent_has_navigable_strings = [content for content in parent.contents if isinstance(content, NavigableString)]
+            parent_has_navigable_strings = bool([content for content in parent.contents if isinstance(content, NavigableString)])
             if not parent_has_navigable_strings:
                 for key, value in self.ex_start_map.items():
                     if text.startswith(key):
@@ -690,15 +687,11 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     @staticmethod
     def abbr(node: Tag):
-        if 'certainty' in node.attrs:
-            certainty = '?'
-        else:
-            certainty = ''
-        return '(|', f'{certainty}|)'
+        return '', f'( )'
 
     @staticmethod
     def note(node: Tag):
-        return '/*', '*/'
+        return '<i>(', ')</i> '
 
     @staticmethod
     def q(node: Tag):
@@ -804,6 +797,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                 for tag in tags:
                     self.create_apparatus_text(tag, results)
                 results.insert(0, 'l.')
+            print(results)
         elif name in ['orig', 'sic']:
             return ''
         elif name in ['app', 'choice', 'subst']:

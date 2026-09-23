@@ -462,11 +462,7 @@ class EpiDocTransformer:
 
     @staticmethod
     def abbr(node: Tag):
-        if 'certainty' in node.attrs:
-            certainty = '(?)'
-        else:
-            certainty = ''
-        return '(|', f'{certainty}|)'
+        return '(|', '|)'
 
     @staticmethod
     def note(node: Tag):

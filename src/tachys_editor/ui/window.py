@@ -491,14 +491,18 @@ class TachysEditorWindow(QMainWindow):
                             self.set_checked_no_signal(self.action_track_changes, False)
                     text = data[2]
                 elif data[0] == file_content:
-                    json_content = json.loads(file_content)
-                    self.file_id = json_content['id']
-                    self.xml_origin = json_content['xml_origin']
-                    if self.tracker.request_active(self.get_tracked_file_name()):
-                        self.set_checked_no_signal(self.action_track_changes, True)
-                    else:
-                        self.set_checked_no_signal(self.action_track_changes, False)
-                    text = json_content['text']
+                    try:
+                        json_content = json.loads(file_content)
+                        self.file_id = json_content['id']
+                        self.xml_origin = json_content['xml_origin']
+                        if self.tracker.request_active(self.get_tracked_file_name()):
+                            self.set_checked_no_signal(self.action_track_changes, True)
+                        else:
+                            self.set_checked_no_signal(self.action_track_changes, False)
+                        text = json_content['text']
+                    except json.JSONDecodeError:
+                        self.tracker.request_active(self.get_tracked_file_name())
+                        text = file_content
                 else:
                     self.tracker.request_active(self.get_tracked_file_name())
                     text = file_content

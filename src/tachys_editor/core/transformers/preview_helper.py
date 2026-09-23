@@ -2,7 +2,7 @@ import html
 import bisect
 import re
 import unicodedata
-from bs4.element import Tag
+from bs4.element import Tag, ResultSet
 
 g_type_map: dict = {
         'coronis' : '⸎',
@@ -134,6 +134,24 @@ def draw_gaps(lines: list[str] | str):
         lines[i] = re.sub(r']( *)\[', r'\1', lines[i])
     return lines
 
+def draw_hyphens(lines: list[str], lb_tags: ResultSet[Tag]):
+    no_line_break_indices = []
+    lb_tags = [tag for tag in lb_tags if tag.parent.name not in ['del', 'rdg', 'corr', 'reg']]
+    for i in range(len(lb_tags)):
+        line = lb_tags[i]
+        if isinstance(line, Tag):
+            if 'break' in line.attrs:
+                no_line_break_indices.append(i - 1)
+    lb_index = -1
+    for i in range(len(lines)):
+        if '<td class="lb"' in lines[i]:
+            lb_index += 1
+            print(lb_index, lines[i])
+            if lb_index in no_line_break_indices:
+                lines[i] += '-'
+                lines[i] = re.sub(r']-$', '-]', lines[i])
+    return lines
+
 def combine_div_name(start_div: Tag):
     combined_names = []
     divs = start_div.find_parents('div', attrs={'type': 'textpart'})
@@ -192,7 +210,7 @@ def map_resp_nodes(main_div: Tag):
 
 def create_html_output(text: str, resp_map: dict[str, str]):
     resp_map = dict(sorted(resp_map.items(), key=lambda item: item[1]))
-    title = '<h2 style="text-align:center;">EDITION</h2>'
+    title = '<h2 style="text-align:center;">PREVIEW</h2>'
     commentary = '<p>This text has been created with TACHYS Editor.</p>\n'
     commentary += f'\n<p>{', '.join([f'{key} [{val}]' for key, val in resp_map.items()])}</p>'
     html_output = (
