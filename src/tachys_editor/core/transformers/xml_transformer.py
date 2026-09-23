@@ -362,7 +362,7 @@ class EpiDocTransformer:
             return self.gap_ellipsis(node)
         else:
             self.unsupported_attribute_value(node, 'reason', reason)
-            return ''
+            return '', ''
         try:
             unit = attrs['unit']
         except KeyError:

@@ -563,7 +563,7 @@ class EpiDoc2HTML(EpiDocTransformer):
             return self.gap_ellipsis(node)
         else:
             self.unsupported_attribute_value(node, 'reason', reason)
-            return ''
+            return '', ''
         if quantity:
             if '-' in quantity:
                 if unit:
