@@ -6,13 +6,14 @@ import roman
 import unicodedata
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
 from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QPalette, QFont
-from PySide6.QtWidgets import QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel, QHBoxLayout
+from PySide6.QtWidgets import (QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel,
+                               QHBoxLayout, QCompleter)
 
 from .highlighter import TachysHighlighter
 from ..core.debug import DebugWorker
 from ..core.format import PasteManager, format_numerals
 from ..shared.settings import settings_mgr
-from ..shared.objects import parser
+from ..shared.objects import parser, g_types
 from ..shared.grammar import get_lang_chars
 
 added_fmt = QTextCharFormat()
@@ -122,11 +123,31 @@ class TachysEditor(QPlainTextEdit):
         self.debug_timer = QTimer()
         self.debug_timer.setSingleShot(True)
         self.debug_timer.timeout.connect(self.start_debugging)
+        self.completer = QCompleter(g_types, self)
+        self.completer.setWidget(self)
+        self.completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+        self.completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self.completer.activated.connect(self.insert_completion)
         self.lines_changed = []
         self.document().contentsChange.connect(self.on_contents_change)
         self.cursorPositionChanged.connect(self.on_cursor_position_changed)
         self.current_line_bg_highlight = 0
         self.highlight_current_line()
+
+    def insert_completion(self, completion: str):
+        cursor = self.textCursor()
+        prefix_len = len(self.completer.completionPrefix())
+        extra_text = completion[prefix_len:]
+        cursor.insertText(extra_text)
+        self.setTextCursor(cursor)
+
+    def text_under_cursor(self) -> str:
+        cursor = self.textCursor()
+        block_text = cursor.block().text()
+        pos_in_block = cursor.positionInBlock()
+        text_before_cursor = block_text[:pos_in_block]
+        match = re.search(r'[\w*|]+$', text_before_cursor)
+        return match.group(0) if match else ""
 
     def find_and_replace(self):
         self.dialog_find_and_replace.show()
@@ -341,6 +362,17 @@ class TachysEditor(QPlainTextEdit):
         return current_font_size / self.default_font_size
 
     def keyPressEvent(self, event):
+        popup = self.completer.popup()
+        if popup.isVisible():
+            if event.key() in (
+                    Qt.Key.Key_Enter,
+                    Qt.Key.Key_Return,
+                    Qt.Key.Key_Escape,
+                    Qt.Key.Key_Tab,
+                    Qt.Key.Key_Backtab,
+            ):
+                event.ignore()  # Delegate key event to the popup
+                return
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:
             self._enter_pressed = True
@@ -355,6 +387,18 @@ class TachysEditor(QPlainTextEdit):
         elif event.key() == Qt.Key.Key_BracketLeft or event.key() == Qt.Key.Key_ParenLeft or event.key() == Qt.Key.Key_BraceLeft:
             self.selected_text = cursor.selectedText()
         super().keyPressEvent(event)
+        completion_prefix = self.text_under_cursor()
+        if len(completion_prefix) < 1 or event.text() in " \n\t":
+            popup.hide()
+            return
+        if completion_prefix != self.completer.completionPrefix():
+            self.completer.setCompletionPrefix(completion_prefix)
+            popup.setCurrentIndex(self.completer.completionModel().index(0, 0))
+        cursor_rect = self.cursorRect()
+        cursor_rect.setWidth(
+            popup.sizeHintForColumn(0) + popup.verticalScrollBar().sizeHint().width()
+        )
+        self.completer.complete(cursor_rect)
 
     def insert_deletion(self):
         cursor = self.textCursor()
