@@ -9,7 +9,7 @@ from typing import Callable
 
 from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QProgressDialog
-from PySide6.QtCore import QUrl, Qt, QTimer
+from PySide6.QtCore import QUrl, Qt, QTimer, SignalInstance, Slot
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
 from .editor import TachysEditor
@@ -22,6 +22,7 @@ from ..core.transformers.tei_builder import TEIBuilder
 from ..core.transformers.preview import EpiDoc2HTML
 from ..core.ai import AIManager
 from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
+from ..shared.objects import parser
 from ..shared.transformer_helper import validate_epidoc_tei
 from .preferences import PreferencesDialog
 
@@ -362,6 +363,7 @@ class TachysEditorWindow(QMainWindow):
         text = self.editor.toPlainText()
         self.save_file(True, text, '*.txt')
 
+    @Slot(int)
     def update_progress_dialog(self, percentage: int):
         if isinstance(self.progress_dialog, QProgressDialog) and self.progress_dialog.isVisible():
             self.progress_dialog.setValue(percentage)
@@ -425,6 +427,7 @@ class TachysEditorWindow(QMainWindow):
 
     def insert_str(self, string: str, sender: str = ''):
         cursor = self.editor.textCursor()
+        cursor.beginEditBlock()
         text = cursor.selectedText()
         if not text:
             text = ''
@@ -439,6 +442,7 @@ class TachysEditorWindow(QMainWindow):
             cursor.movePosition(QTextCursor.MoveOperation.Left, QTextCursor.MoveMode.MoveAnchor, len(text) + 8)
             cursor.select(QTextCursor.SelectionType.WordUnderCursor)
             self.editor.setTextCursor(cursor)
+        cursor.endEditBlock()
 
 
     def set_cursor_position(self, line, column):
@@ -594,8 +598,18 @@ class TachysEditorWindow(QMainWindow):
         settings_mgr.editor.text_cursor_pos_ = self.editor.textCursor().position()
         settings_mgr.write_settings()
 
+    @staticmethod
+    def disconnect_signal(signal: SignalInstance):
+        try:
+            signal.disconnect()
+        except (TypeError, RuntimeError):
+            pass
+
     def closeEvent(self, event):
         self.update_settings()
         if self.file_path.endswith('.leiden') and settings_mgr.general.auto_save_on_exit:
             self.save_file(False, self.create_leiden_file())
+        self.disconnect_signal(parser.signal_progress)
+        self.disconnect_signal(self.editor.debug_worker.signal_progress)
         self.editor.debug_worker.debug_executor.shutdown(wait=False, cancel_futures=True)
+        event.accept()

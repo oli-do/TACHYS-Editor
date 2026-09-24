@@ -1,6 +1,6 @@
 from PySide6.QtCore import Qt, Slot, QTimer
 from .editor import TachysEditor
-from PySide6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QDockWidget, QListWidget, QListWidgetItem, QWidget, QVBoxLayout, QLabel
 from typing import Literal
 
 
@@ -38,9 +38,12 @@ class BottomDock(QDockWidget):
 
     def add_problem(self, symbol: Literal['⛔', '⚠️', '🚫'],  line: int, description: str):
         text = f'{symbol} {description} :{line + 1}'
-        list_widget_item = QListWidgetItem(text)
+        label = QLabel(text)
+        list_widget_item = QListWidgetItem()
+        list_widget_item.setSizeHint(label.sizeHint())
         list_widget_item.setData(Qt.ItemDataRole.UserRole, line)
         self.list_widget.addItem(list_widget_item)
+        self.list_widget.setItemWidget(list_widget_item, label)
 
     def on_item_clicked(self, item):
         data = item.data(Qt.ItemDataRole.UserRole)

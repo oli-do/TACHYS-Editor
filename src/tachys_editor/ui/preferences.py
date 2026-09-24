@@ -1,8 +1,10 @@
 from PySide6.QtWidgets import (
-    QDialog, QTabWidget, QWidget,
+    QDialog, QTabWidget, QWidget, QHBoxLayout,
     QVBoxLayout, QFormLayout, QCheckBox, QComboBox, QScrollArea,
-    QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QMessageBox, QStyleFactory
+    QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QMessageBox, QStyleFactory, QToolButton, QToolTip
 )
+from PySide6.QtGui import QCursor
+from PySide6.QtCore import Slot
 from ..shared.settings import settings_mgr, font_families
 from dataclasses import fields
 
@@ -66,6 +68,23 @@ class PreferencesDialog(QDialog):
         layout.addRow("UI Font Size:", self.ui_font_size_spin)
         return tab
 
+    def _add_help_icon(self, widget, help_message: str) -> QHBoxLayout:
+        help_icon = self.style().standardIcon(self.style().StandardPixmap.SP_MessageBoxQuestion)
+        help_button = QToolButton(self)
+        help_button.setIcon(help_icon)
+        help_button.setAutoRaise(True)
+        help_button.clicked.connect(lambda: self.on_help_item_clicked(help_message))
+        row_container = QHBoxLayout()
+        row_container.addWidget(widget)
+        row_container.addWidget(help_button)
+        row_container.setStretch(0, 1)
+        row_container.setStretch(1, 0)
+        return row_container
+
+    @Slot(str)
+    def on_help_item_clicked(self, help_message: str):
+        QToolTip.showText(QCursor.pos(), help_message)
+
     def _create_editor_tab(self) -> QWidget:
         tab = QWidget()
         layout = QFormLayout(tab)
@@ -75,18 +94,26 @@ class PreferencesDialog(QDialog):
         self.font_combo.setCurrentText(settings_mgr.editor.font)
         self.font_combo.currentTextChanged.connect(self.set_restart_required_true)
         self.register(self.font_combo, settings_mgr.editor, 'font')
-
+        font_combo_layout = self._add_help_icon(self.font_combo,
+                                                'The <b>Font</b> displayed in the editor')
         self.default_language_combo = QComboBox()
-        self.default_language_combo.addItems(['grc', 'la', 'cop', 'ar', 'egy-Egyd', 'grc-Latn', 'la-Grek', 'cop-Grek'])
+        self.default_language_combo.addItems(['grc', 'la', 'cop', 'ar', 'egy-Egyd'])
         self.default_language_combo.setCurrentText(settings_mgr.editor.default_language)
         self.register(self.default_language_combo, settings_mgr.editor, 'default_language')
-
+        default_language_layout = self._add_help_icon(
+            self.default_language_combo,
+            '<b>Default Language</b> of Leiden+ documents in the editor: grc = Ancient Greek;'
+            ' la = Latin; cop = Coptic; ar = Arabic; egy-Egyd = Demotic')
         self.debug_delay_spin = QSpinBox()
-        self.debug_delay_spin.setRange(100, 1000)
+        self.debug_delay_spin.setRange(1, 300)
         self.debug_delay_spin.setValue(settings_mgr.editor.debug_delay)
         self.debug_delay_spin.setSuffix(' ms')
-        self.debug_delay_spin.setToolTip('How long the debugger is delayed after the user has stopped typing.')
+        self.debug_delay_spin.setToolTip('Increasing this can reduce performance issues on weaker systems.')
         self.register(self.debug_delay_spin, settings_mgr.editor, 'debug_delay')
+        debug_delay_layout = self._add_help_icon(self.debug_delay_spin,
+                                                 '<b>Debug Delay</b> adds a pause between the user typing '
+                                                 'text and the debugging process. This can reduce performance issues on '
+                                                 'weaker systems.')
 
         scroll_shortcuts = QScrollArea()
         scroll_shortcuts.setWidgetResizable(True)
@@ -104,9 +131,9 @@ class PreferencesDialog(QDialog):
             scroll_shortcuts_layout.addRow(label, sequence_edit)
         scroll_shortcuts.setWidget(container_widget)
 
-        layout.addRow('Font:', self.font_combo)
-        layout.addRow('Default Language:', self.default_language_combo)
-        layout.addRow("Debug Delay:", self.debug_delay_spin)
+        layout.addRow('Font:', font_combo_layout)
+        layout.addRow('Default Language:', default_language_layout)
+        layout.addRow("Debug Delay:", debug_delay_layout)
         layout.addRow('Shortcuts:', scroll_shortcuts)
         return tab
 

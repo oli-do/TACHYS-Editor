@@ -3,7 +3,6 @@ from PySide6.QtWidgets import QMenu
 from PySide6.QtGui import QFont
 import joblib
 import unicodedata
-import regex
 import numpy as np
 from tachys_editor.shared.settings import settings_mgr
 
