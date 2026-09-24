@@ -72,7 +72,7 @@ class EditorSettings:
     default_language: str = field(default='grc')
     zoom_level_: float = field(default=1.0)
     last_file_: str = field(default='')
-    debug_delay: int = field(default=250)
+    debug_delay: int = field(default=150)
     scroll_val_: int = field(default=0)
     text_cursor_pos_: int = field(default=0)
     shortcuts: EditorShortcuts = field(default_factory=EditorShortcuts)

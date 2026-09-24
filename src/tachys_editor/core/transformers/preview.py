@@ -797,7 +797,6 @@ class EpiDoc2HTML(EpiDocTransformer):
                 for tag in tags:
                     self.create_apparatus_text(tag, results)
                 results.insert(0, 'l.')
-            print(results)
         elif name in ['orig', 'sic']:
             return ''
         elif name in ['app', 'choice', 'subst']:

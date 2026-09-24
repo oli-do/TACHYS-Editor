@@ -146,7 +146,6 @@ def draw_hyphens(lines: list[str], lb_tags: ResultSet[Tag]):
     for i in range(len(lines)):
         if '<td class="lb"' in lines[i]:
             lb_index += 1
-            print(lb_index, lines[i])
             if lb_index in no_line_break_indices:
                 lines[i] += '-'
                 lines[i] = re.sub(r']-$', '-]', lines[i])

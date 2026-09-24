@@ -4,6 +4,7 @@ from typing import Literal
 import pyperclip
 import roman
 import unicodedata
+import time
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
 from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QPalette, QFont
 from PySide6.QtWidgets import (QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel,
@@ -107,6 +108,7 @@ class TachysEditor(QPlainTextEdit):
         self.line_text = ''
         self.line_break = False
         self.do_debugging = True
+        self.last_debugging_request_when = 0
         self._enter_pressed = False
         self.setWordWrapMode(QTextOption.WrapMode.NoWrap)
         self.paste_mgr = PasteManager()
@@ -242,10 +244,11 @@ class TachysEditor(QPlainTextEdit):
             self.current_line_bg_highlight = highlight_line
 
     def request_debugging(self):
+        self.last_debugging_request_when = time.time() - self.last_debugging_request_when
         self.debug_timer.start(settings_mgr.editor.debug_delay)
 
     def start_debugging(self):
-        if self.debug_worker.is_running:
+        if self.debug_worker.is_running or self.last_debugging_request_when < settings_mgr.editor.debug_delay:
             if self.lines_changed:
                 self.request_debugging()
             return
@@ -342,7 +345,6 @@ class TachysEditor(QPlainTextEdit):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         cr = self.contentsRect()
-        # Hier wird die Geometrie des LeftWidgets fest an den linken Rand gebunden
         self.left_widget.setGeometry(
             QRect(cr.left(), cr.top(), self.left_widget_width(), cr.height())
         )
@@ -353,6 +355,7 @@ class TachysEditor(QPlainTextEdit):
                 self.zoomIn(1)
             else:
                 self.zoomOut(1)
+            settings_mgr.editor.zoom_level_ = self.get_zoom_level()
             event.accept()
         else:
             super().wheelEvent(event)
@@ -371,7 +374,7 @@ class TachysEditor(QPlainTextEdit):
                     Qt.Key.Key_Tab,
                     Qt.Key.Key_Backtab,
             ):
-                event.ignore()  # Delegate key event to the popup
+                event.ignore()
                 return
         cursor = self.textCursor()
         if event.key() == Qt.Key.Key_Enter or event.key() == Qt.Key.Key_Return:

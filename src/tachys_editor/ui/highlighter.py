@@ -153,31 +153,32 @@ class TachysHighlighter(QSyntaxHighlighter):
             while match.hasNext():
                 m = match.next()
                 self.setFormat(m.capturedStart(), m.capturedLength(), formatting)
-        xml_matches = self.xml_section_regex.globalMatch(text)
-        while xml_matches.hasNext():
-            m = xml_matches.next()
-            self.setFormat(m.capturedStart(), m.capturedLength(), self.xml_format)
-            content_start = m.capturedStart(1)
-            content_text = m.captured(1)
+        if '$' in text:
+            xml_matches = self.xml_section_regex.globalMatch(text)
+            while xml_matches.hasNext():
+                m = xml_matches.next()
+                self.setFormat(m.capturedStart(), m.capturedLength(), self.xml_format)
+                content_start = m.capturedStart(1)
+                content_text = m.captured(1)
 
-            # Highlight Tag Names
-            tag_matches = self.xml_tag_regex.globalMatch(content_text)
-            while tag_matches.hasNext():
-                tm = tag_matches.next()
-                self.setFormat(content_start + tm.capturedStart(1), tm.capturedLength(1), self.xml_format)
+                # Highlight Tag Names
+                tag_matches = self.xml_tag_regex.globalMatch(content_text)
+                while tag_matches.hasNext():
+                    tm = tag_matches.next()
+                    self.setFormat(content_start + tm.capturedStart(1), tm.capturedLength(1), self.xml_format)
 
-            # Highlight Attributes
-            attr_matches = self.xml_attr_regex.globalMatch(content_text)
-            while attr_matches.hasNext():
-                am = attr_matches.next()
-                self.setFormat(content_start + am.capturedStart(1), am.capturedLength(1), self.xml_attr_format)
-                self.setFormat(content_start + am.capturedStart(2), am.capturedLength(2), self.xml_value_format)
+                # Highlight Attributes
+                attr_matches = self.xml_attr_regex.globalMatch(content_text)
+                while attr_matches.hasNext():
+                    am = attr_matches.next()
+                    self.setFormat(content_start + am.capturedStart(1), am.capturedLength(1), self.xml_attr_format)
+                    self.setFormat(content_start + am.capturedStart(2), am.capturedLength(2), self.xml_value_format)
 
-            # Highlight Inner Text
-            text_matches = self.xml_text_regex.globalMatch(content_text)
-            while text_matches.hasNext():
-                tm = text_matches.next()
-                self.setFormat(content_start + tm.capturedStart(1), tm.capturedLength(1), self.xml_text_format)
+                # Highlight Inner Text
+                text_matches = self.xml_text_regex.globalMatch(content_text)
+                while text_matches.hasNext():
+                    tm = text_matches.next()
+                    self.setFormat(content_start + tm.capturedStart(1), tm.capturedLength(1), self.xml_text_format)
         if self.do_error_highlighting:
             line_num = self.currentBlock().blockNumber()
             if line_num in self.error_map:
@@ -211,14 +212,15 @@ class TachysHighlighter(QSyntaxHighlighter):
     def update_error_highlighting(self, error_data):
         print(f'Highlighter: highlight errors {error_data}')
         self.do_error_highlighting = True
+        previous_error_lines = list(self.error_map.keys())
         self.error_map = {}
-        if not error_data:
-            self.rehighlight()
-            self.do_error_highlighting = False
-            return
-        for error_id, line, column, char, _ in error_data:
-            if line not in self.error_map:
-                self.error_map[line] = []
-            self.error_map[line].append((error_id, column, char))
-        self.rehighlight()
-        self.do_error_highlighting = False
+        if error_data:
+            for error_id, line, column, char, _ in error_data:
+                if line not in self.error_map:
+                    self.error_map[line] = []
+                self.error_map[line].append((error_id, column, char))
+        doc = self.document()
+        for line_num in list(self.error_map.keys()) + previous_error_lines:
+            block = doc.findBlockByNumber(line_num)
+            if block.isValid():
+                self.rehighlightBlock(block)

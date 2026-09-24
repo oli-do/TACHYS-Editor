@@ -1,5 +1,5 @@
 from PySide6.QtCore import QObject, Signal
-from concurrent.futures import ProcessPoolExecutor, wait, ALL_COMPLETED
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from time import time
 import os
 import threading
@@ -27,9 +27,11 @@ def _init_worker(lang: str):
 
 class DebugWorker(QObject):
     signal_error_info: Signal = Signal(list)
+    signal_progress: Signal = Signal(int)
 
     def __init__(self):
         super().__init__()
+        parser.signal_progress.connect(self.send_progress_update)
         self.text = ''
         self.current_lines = []
         self.previous_text = ''
@@ -105,10 +107,22 @@ class DebugWorker(QObject):
             futures = [self.debug_executor.submit(debug, self.current_lines[i], i) for i in self.lines_changed_indices if i < len_current_lines]
             threading.Thread(target=self.monitor_futures, args=(futures,), daemon=True).start()
 
+    def send_progress_update(self, percentage: int):
+        self.signal_progress.emit(percentage)
 
     def monitor_futures(self, futures):
-        wait(futures, return_when=ALL_COMPLETED)
-        self.on_finished(futures)
+        completed = 0
+        for future in as_completed(futures):
+            error, xml = future.result()
+            if error:
+                self.errors.append(error)
+            if xml:
+                index, text = xml[0]
+                self.xml_lines[index] = text
+            completed += 1
+            percentage = round(completed / len(futures) * 50) - 1
+            self.send_progress_update(percentage)
+        self.on_finished()
 
     def enable(self):
         self.enabled = True
@@ -118,18 +132,11 @@ class DebugWorker(QObject):
         self.enabled = False
         self.is_running = False
 
-    def on_finished(self, futures):
+    def on_finished(self):
         if self.enabled:
-            for future in futures:
-                if future.result():
-                    error, xml = future.result()
-                    if error:
-                        self.errors.append(error)
-                    if xml:
-                        index, text = xml[0]
-                        self.xml_lines[index] = text
             self.previous_text = self.text
             self.errors, xml = parser.validate_line_errors(self.text.splitlines(), self.errors)
+            self.send_progress_update(99)
             start_time = time()
             self.errors = [error for error in self.errors if not error.id in [4, 5, 6]]
             unclosed_div = self.validate_structure('<D=', '=D>')
@@ -150,6 +157,7 @@ class DebugWorker(QObject):
         debug_time = (time() - self.debug_start_time) * 1000
         print(f'DebugWorker: took {debug_time} ms')
         self.is_running = False
+        self.send_progress_update(100)
 
     def set_text(self, text):
         self.text = text

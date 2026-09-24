@@ -1,9 +1,9 @@
 from importlib.resources import files
 from dataclasses import dataclass
-from concurrent.futures import ProcessPoolExecutor, as_completed
 from typing import Literal
 
 import lark.exceptions
+from PySide6.QtCore import QObject, Signal
 
 from ..shared.grammar import build_text_rules
 from .transformers.leiden_plus_transformer import LeidenPlusTransformer
@@ -84,8 +84,10 @@ class ParserError:
     expected: set[str] | None
     details: str = ''
 
-class TachysParser:
+class TachysParser(QObject):
+    signal_progress = Signal(int)
     def __init__(self):
+        super().__init__()
         self.errors: list[ParserError] = []
         self.file_errors: list[ParserError] = []
         self.index: int = 0
@@ -97,7 +99,6 @@ class TachysParser:
         self.unicode_normalization: Literal['NFC', 'NFD'] = 'NFC'
         self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False, ambiguity='resolve', regex=True)
         self.full_parser = Lark(self.grammar, parser='earley', regex=True)
-        self.executor = ProcessPoolExecutor(max_workers=3)
         self.transformer = LeidenPlusTransformer()
 
     def set_language(self, lang: Literal['grc', 'la', 'cop', 'any']):
@@ -181,11 +182,8 @@ class TachysParser:
             return errors, transformed
         pairs = []
         multiline_tags = [('<:', ':>'), ('(', ')'), ('"', None)]
-        futures = [self.executor.submit(find_multiline_pairs, lines, o, c) for o, c in multiline_tags]
-        for future in as_completed(futures):
-            result = future.result()
-            if result:
-                pairs += future.result()
+        for o, c in multiline_tags:
+            pairs += find_multiline_pairs(lines, o, c)
         pairs = sorted(pairs)
         if pairs:
             merged = [list(pairs[0])]
@@ -197,7 +195,11 @@ class TachysParser:
                 merged[-1][1] = current_end
             else:
                 merged.append([current_start, current_end])
+        completed = 0
         for pair in merged:
+            completed += 1
+            percentage = round(completed / len(merged) * 50) + 49
+            self.signal_progress.emit(percentage)
             start = pair[0]
             end = pair[1]
             parse = False
