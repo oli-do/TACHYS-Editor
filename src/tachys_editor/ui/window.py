@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Callable
 
 from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
-from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog
+from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QProgressDialog
 from PySide6.QtCore import QUrl, Qt, QTimer
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -41,11 +41,8 @@ class TachysEditorWindow(QMainWindow):
         self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
-        self.export_timer = QTimer()
-        self.msg_awaiting_export = QMessageBox()
-        self.msg_awaiting_export.setWindowTitle("Transformation in progress")
-        self.msg_awaiting_export.setText("Please wait while your Leiden+ code is being transformed...")
-        self.msg_awaiting_export.setStandardButtons(QMessageBox.StandardButton.NoButton)
+        self.timer = QTimer()
+        self.progress_dialog = None
         # Settings
         self.saving_enabled = True
         self.imported_change_log = None
@@ -73,6 +70,8 @@ class TachysEditorWindow(QMainWindow):
             self.open_file(settings_mgr.editor.last_file_)
         else:
             self.new_file()
+        # Signals
+        self.editor.debug_worker.signal_progress.connect(self.update_progress_dialog)
 
     def get_menu_action(self, parent, action_name: str) -> QAction:
         for action in parent.actions():
@@ -363,13 +362,22 @@ class TachysEditorWindow(QMainWindow):
         text = self.editor.toPlainText()
         self.save_file(True, text, '*.txt')
 
+    def update_progress_dialog(self, percentage: int):
+        if isinstance(self.progress_dialog, QProgressDialog) and self.progress_dialog.isVisible():
+            self.progress_dialog.setValue(percentage)
+
     def export_to_xml(self, preview: bool=False):
         if self.editor.debug_worker.is_running or self.editor.debug_timer.isActive():
-            self.export_timer.singleShot(500, lambda: self.export_to_xml(preview))
-            if not self.msg_awaiting_export.isVisible():
-                self.msg_awaiting_export.setVisible(True)
-            return
-        self.msg_awaiting_export.setVisible(False)
+            self.progress_dialog = QProgressDialog()
+            self.progress_dialog.setWindowTitle("Processing")
+            self.progress_dialog.setLabelText('Please wait while your Leiden+ code is being processed...')
+            self.progress_dialog.setCancelButton(None)
+            self.progress_dialog.setWindowFlags(Qt.WindowType.Dialog |
+                                                Qt.WindowType.WindowTitleHint |
+                                                Qt.WindowType.CustomizeWindowHint)
+            self.progress_dialog.setWindowModality(Qt.WindowModality.ApplicationModal)
+            self.progress_dialog.setAutoClose(True)
+            self.progress_dialog.exec_()
         if self.editor.debug_worker.errors:
             QMessageBox.critical(self, 'Unhandled Leiden+ Errors', 'There are unhandled Leiden+ errors. '
                                                                    'Export aborted.')
@@ -390,7 +398,7 @@ class TachysEditorWindow(QMainWindow):
                     f.write(html_out)
                     temp_file_name = f.name
                 webbrowser.open('file://' + os.path.abspath(temp_file_name))
-                self.export_timer.singleShot(5000, lambda: os.remove(temp_file_name))
+                self.timer.singleShot(5000, lambda: os.remove(temp_file_name))
         else:
             msg = QMessageBox()
             msg.setWindowTitle('Export Failed')
@@ -443,6 +451,7 @@ class TachysEditorWindow(QMainWindow):
     def reset(self):
         self.editor.stop_debugging()
         self.bottom_dock.reset()
+        self.progress_dialog = None
         self.editor.clear()
         self.tracker.active = False
         self.set_checked_no_signal(self.action_track_changes, False)

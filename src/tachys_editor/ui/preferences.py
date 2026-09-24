@@ -57,7 +57,7 @@ class PreferencesDialog(QDialog):
 
         self.ui_font_size_spin = QSpinBox()
         self.ui_font_size_spin.setValue(settings_mgr.appearance.ui_font_size)
-        self.ui_font_size_spin.setRange(8, 16)
+        self.ui_font_size_spin.setRange(8, 18)
         self.ui_font_size_spin.valueChanged.connect(self.set_restart_required_true)
         self.register(self.ui_font_size_spin, settings_mgr.appearance, 'ui_font_size')
 

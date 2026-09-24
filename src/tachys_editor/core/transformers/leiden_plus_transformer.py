@@ -347,9 +347,18 @@ class LeidenPlusTransformer(Transformer):
     def unclear(self, children):
         return inner_xml('<unclear>', children, '</unclear>')
 
-    @v_args(inline=True)
-    def non_default_language(self, text, lang):
-        return f'<foreign xml:lang="{lang}">{text}</foreign>'
+    def non_def_lang_text(self, children):
+        return ''.join(children)
+
+    def non_def_lang_item(self, children):
+        items = children[0]
+        return ''.join(items)
+
+    def non_default_language(self, children):
+        children = list(filter(None, children))
+        contents = ''.join(children[:-1])
+        lang = children[-1]
+        return f'<foreign xml:lang="{lang}">{contents}</foreign>'
 
     def CHAR(self, _):
         return ' unit="character"'

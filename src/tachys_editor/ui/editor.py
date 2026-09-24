@@ -353,6 +353,7 @@ class TachysEditor(QPlainTextEdit):
                 self.zoomIn(1)
             else:
                 self.zoomOut(1)
+            settings_mgr.editor.zoom_level_ = self.get_zoom_level()
             event.accept()
         else:
             super().wheelEvent(event)
