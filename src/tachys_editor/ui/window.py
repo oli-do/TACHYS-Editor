@@ -236,6 +236,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(insert_menu, 'Supralinear Stroke alt.', lambda: self.insert_str('¯'), shortcuts.supralinear_stroke_alt)
         self.add_menu_action(insert_menu, 'Handshift', lambda: self.insert_str('$m2 '), shortcuts.handshift)
         self.add_menu_action(insert_menu, 'Underdot', self.editor.insert_underdot, shortcuts.underdot)
+        self.add_menu_action(insert_menu, 'EpiDoc XML', lambda: self.insert_str('§§'))
         # View Menu
         view_menu = self.menuBar().addMenu('View')
         submenu_zoom = QMenu('Zoom')

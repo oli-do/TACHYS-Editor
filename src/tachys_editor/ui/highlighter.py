@@ -153,7 +153,7 @@ class TachysHighlighter(QSyntaxHighlighter):
             while match.hasNext():
                 m = match.next()
                 self.setFormat(m.capturedStart(), m.capturedLength(), formatting)
-        if '$' in text:
+        if '§' in text:
             xml_matches = self.xml_section_regex.globalMatch(text)
             while xml_matches.hasNext():
                 m = xml_matches.next()
