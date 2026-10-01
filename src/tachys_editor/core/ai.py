@@ -25,7 +25,6 @@ class AIManager:
         font_size = settings_mgr.appearance.ui_font_size + 2
         self.context_menu.setFont(QFont(settings_mgr.editor.font, font_size))
         normalized_word = self.normalize(word)
-        print(normalized_word)
         probabilities = self.regs_pipeline.predict_proba([normalized_word])[0]
         all_classes = self.regs_pipeline.named_steps['kneighborsclassifier'].classes_
         top_indices = np.argsort(probabilities)[::-1][:10]

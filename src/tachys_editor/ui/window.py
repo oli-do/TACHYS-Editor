@@ -21,7 +21,7 @@ from ..core.transformers.xml_transformer import EpiDocTransformer
 from ..core.transformers.tei_builder import TEIBuilder
 from ..core.transformers.preview import EpiDoc2HTML
 from ..core.ai import AIManager
-from ..shared.settings import tracking_dir, settings_mgr, app_name, window_width, window_height
+from ..shared.settings import tracking_dir, settings_mgr, app_name, get_screen_metrics
 from ..shared.objects import parser
 from ..shared.transformer_helper import validate_epidoc_tei
 from .preferences import PreferencesDialog
@@ -33,7 +33,8 @@ documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_
 class TachysEditorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.resize(window_width, window_height)
+        screen_metrics = get_screen_metrics()
+        self.resize(screen_metrics['window_width'], screen_metrics['window_height'])
         self.webview = QWebEngineView()
         self.parser = TachysParser()
         self.lp_transformer = LeidenPlusTransformer()
@@ -235,6 +236,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(insert_menu, 'Supralinear Stroke alt.', lambda: self.insert_str('¯'), shortcuts.supralinear_stroke_alt)
         self.add_menu_action(insert_menu, 'Handshift', lambda: self.insert_str('$m2 '), shortcuts.handshift)
         self.add_menu_action(insert_menu, 'Underdot', self.editor.insert_underdot, shortcuts.underdot)
+        self.add_menu_action(insert_menu, 'EpiDoc XML', lambda: self.insert_str('§§'))
         # View Menu
         view_menu = self.menuBar().addMenu('View')
         submenu_zoom = QMenu('Zoom')

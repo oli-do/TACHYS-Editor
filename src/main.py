@@ -4,9 +4,6 @@ import traceback
 import datetime
 from PySide6.QtCore import Qt
 from multiprocessing import freeze_support
-
-freeze_support()
-
 from PySide6.QtWidgets import QApplication, QStyleFactory
 
 app = QApplication(sys.argv)
@@ -30,6 +27,7 @@ sys.excepthook = catch_exceptions
 
 
 if __name__ == "__main__":
+    freeze_support()
     splash.show()
     splash.showMessage('Initializing UI...',
                        alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter)

@@ -1,40 +1,48 @@
 import json
 import os
 from dataclasses import dataclass, asdict, field, fields, is_dataclass
-from tkinter import Tk, font
 from appdirs import user_data_dir
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QFontDatabase
 
 app_name = 'TACHYS Editor'
 app_author = 'Oliver Donath'
 data_dir = user_data_dir(appname=app_name, appauthor=app_author)
 tracking_dir = os.path.join(data_dir, 'changes')
 config_file_path = os.path.join(data_dir, 'config.json')
-root = Tk()
-root.withdraw()
-font_families = font.families()
-if 'IFAO-Grec Unicode' in font_families:
-    default_font: str = 'IFAO-Grec Unicode'
-elif 'Brill' in font_families:
-    default_font: str = 'Brill'
-elif 'Cardo' in font_families:
-    default_font: str = 'Cardo'
-elif 'Segoe UI' in font_families:
-    default_font: str = 'Segoe UI'
-elif 'Noto Sans' in font_families:
-    default_font: str = 'Noto Sans'
-elif 'Noto Serif' in font_families:
-    default_font: str = 'Noto Serif'
-else:
-    default_font: str = ''
-screen = QApplication.primaryScreen()
-size = screen.size()
-screen_width = size.width()
-screen_height = size.height()
-window_width = round(0.75 * screen_width)
-window_height = round(0.75 * screen_height)
-default_ui_font_size = round(0.009 * screen_height)
-default_editor_font_size = round(0.013 * screen_height)
+
+
+def get_default_font() -> str:
+    preferred_fonts = [
+        'IFAO-Grec Unicode', 'Brill', 'Cardo',
+        'Segoe UI', 'Noto Sans', 'Noto Serif'
+    ]
+    if not QApplication.instance():
+        return 'Segoe UI'
+    available_fonts = QFontDatabase.families()
+    for f in preferred_fonts:
+        if f in available_fonts:
+            return f
+    return ''
+
+
+def get_screen_metrics() -> dict:
+    screen = QApplication.primaryScreen() if QApplication.instance() else None
+    if screen:
+        screen_height = screen.size().height()
+        screen_width = screen.size().width()
+        return {
+            'ui_font_size': round(0.009 * screen_height),
+            'editor_font_size': round(0.013 * screen_height),
+            'window_width': round(0.75 * screen_width),
+            'window_height': round(0.75 * screen_height)
+        }
+    return {
+        'ui_font_size': 13,
+        'editor_font_size': 19,
+        'window_width': 700,
+        'window_height': 500
+    }
 
 
 @dataclass
@@ -48,7 +56,7 @@ class GeneralSettings:
 class AppearanceSettings:
     window_style: str = field(default='Fusion')
     theme: str = field(default='auto')
-    ui_font_size: int = field(default=default_ui_font_size)
+    ui_font_size: int = field(default=get_screen_metrics()['ui_font_size'])
 
 @dataclass
 class EditorShortcuts:
@@ -67,8 +75,8 @@ class EditorShortcuts:
 
 @dataclass
 class EditorSettings:
-    font: str = field(default=default_font)
-    font_size: int = field(default=default_editor_font_size)
+    font: str = field(default=get_default_font())
+    font_size: int = field(default=get_screen_metrics()['editor_font_size'])
     default_language: str = field(default='grc')
     zoom_level_: float = field(default=1.0)
     last_file_: str = field(default='')

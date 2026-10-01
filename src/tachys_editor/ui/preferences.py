@@ -3,9 +3,9 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QFormLayout, QCheckBox, QComboBox, QScrollArea,
     QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QMessageBox, QStyleFactory, QToolButton, QToolTip
 )
-from PySide6.QtGui import QCursor
+from PySide6.QtGui import QCursor, QFontDatabase
 from PySide6.QtCore import Slot
-from ..shared.settings import settings_mgr, font_families
+from ..shared.settings import settings_mgr
 from dataclasses import fields
 
 class PreferencesDialog(QDialog):
@@ -90,6 +90,7 @@ class PreferencesDialog(QDialog):
         layout = QFormLayout(tab)
 
         self.font_combo = QComboBox()
+        font_families = QFontDatabase.families()
         self.font_combo.addItems(list(font_families))
         self.font_combo.setCurrentText(settings_mgr.editor.font)
         self.font_combo.currentTextChanged.connect(self.set_restart_required_true)
