@@ -1,10 +1,8 @@
 import html
-import sys
 import regex
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDialog,
@@ -22,25 +20,18 @@ from PySide6.QtWidgets import (
 
 
 class CustomOptionDropdown(QPushButton):
-    """Dropdown button that opens a popup container with QCheckBoxes and a QLineEdit."""
+    """Dropdown button that opens a popup container with further options."""
     valueChanged = Signal()
 
     def __init__(self, category: str, parent=None):
         super().__init__("Options ▾", parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        # Popup frame
         self.popup = QFrame(self, Qt.WindowType.Popup)
         self.popup.setObjectName("optionsPopup")
-
         popup_layout = QVBoxLayout(self.popup)
         popup_layout.setSpacing(6)
         popup_layout.setContentsMargins(10, 10, 10, 10)
-
-        # Dropdown internal controls
         self.chk_uncertain = QCheckBox("Uncertain (?)")
-
-
         self.custom_input = QLineEdit()
         if category == 'Editorial Correction':
             self.custom_input.setPlaceholderText("Editor / Source")
@@ -48,21 +39,16 @@ class CustomOptionDropdown(QPushButton):
             self.custom_input.setPlaceholderText("Language")
         else:
             self.custom_input.setVisible(False)
-
         popup_layout.addWidget(self.chk_uncertain)
         popup_layout.addWidget(self.custom_input)
-
-        # Connect internal signals
         self.chk_uncertain.stateChanged.connect(self._on_internal_change)
         self.custom_input.textChanged.connect(self._on_internal_change)
-
         self.clicked.connect(self.toggle_popup)
 
     def toggle_popup(self):
         if self.popup.isVisible():
             self.popup.hide()
         else:
-            # Position the popup right below the button
             pos = self.mapToGlobal(self.rect().bottomLeft())
             self.popup.move(pos)
             self.popup.setMinimumWidth(max(self.width(), 180))
@@ -127,18 +113,13 @@ class ApparatusCreatorDialog(QDialog):
         self.setWindowTitle("Apparatus Creator")
         self.resize(680, 520)
         self.setMinimumWidth(580)
-
-        # Tracking lists for (QLineEdit, CustomOptionDropdown) tuples
         self.left_inputs: list[tuple[QLineEdit, CustomOptionDropdown]] = []
         self.right_inputs: list[tuple[QLineEdit, CustomOptionDropdown]] = []
         self.left_ph: str = ""
         self.right_ph: str = ""
         self.category: str = ""
-
         self._init_ui()
         self._apply_styles()
-
-        # Initialize selection
         self.on_category_changed(self.combo_apparatus.currentText())
 
     def _init_ui(self):
@@ -146,74 +127,63 @@ class ApparatusCreatorDialog(QDialog):
         main_layout.setSpacing(16)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        # --- 1. Category Form Section ---
+        # category
         form_group = QGroupBox("Apparatus Configuration")
         form_layout = QFormLayout(form_group)
         form_layout.setSpacing(12)
-
         self.combo_apparatus = QComboBox()
         self.combo_apparatus.addItems(list(self.CATEGORIES.keys()))
         self.combo_apparatus.currentTextChanged.connect(self.on_category_changed)
-
         self.category_description = QLabel()
         self.category_description.setWordWrap(True)
         self.category_description.setStyleSheet("color: #666666; font-style: italic;")
 
-        # Containers for Left and Right side dynamic rows
+        # Containers for dynamic rows
         self.left_container = QWidget()
         self.left_layout = QVBoxLayout(self.left_container)
         self.left_layout.setContentsMargins(0, 0, 0, 0)
         self.left_layout.setSpacing(6)
-
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout(self.right_container)
         self.right_layout.setContentsMargins(0, 0, 0, 0)
         self.right_layout.setSpacing(6)
 
-        # Dynamic Add Buttons for each side
+        # Buttons
         self.add_left_btn = QPushButton("+ Add")
         self.add_left_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.add_left_btn.clicked.connect(self.on_add_left_clicked)
-
         self.add_right_btn = QPushButton("+ Add")
         self.add_right_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.add_right_btn.clicked.connect(self.on_add_right_clicked)
-
         left_box = QVBoxLayout()
         left_box.setSpacing(6)
         left_box.addWidget(self.left_container)
         left_box.addWidget(self.add_left_btn)
-
         right_box = QVBoxLayout()
         right_box.setSpacing(6)
         right_box.addWidget(self.right_container)
         right_box.addWidget(self.add_right_btn)
-
         form_layout.addRow("Category:", self.combo_apparatus)
         form_layout.addRow("Description:", self.category_description)
         form_layout.addRow("Left Side:", left_box)
         form_layout.addRow("Right Side:", right_box)
-
         main_layout.addWidget(form_group)
 
-        # --- 2. Code Preview ---
+        # Leiden+ Preview
         preview_group = QGroupBox("Leiden+ Preview")
         preview_layout = QVBoxLayout(preview_group)
         preview_layout.setContentsMargins(12, 16, 12, 16)
-
         self.lp_label = QLabel("<:|reg|:>")
         self.lp_label.setObjectName("previewLabel")
         self.lp_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lp_label.setWordWrap(True)
-
         mono_font = QFont("IFAO-Grec Unicode")
         mono_font.setPointSize(16)
         self.lp_label.setFont(mono_font)
-
         preview_layout.addWidget(self.lp_label)
         main_layout.addWidget(preview_group)
 
-        # --- 3. Dialog Buttons ---
+        # Dialog Buttons
         button_box = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -295,28 +265,19 @@ class ApparatusCreatorDialog(QDialog):
         """Add a QLineEdit + CustomOptionDropdown row."""
         layout = self.left_layout if side == "left" else self.right_layout
         target_list = self.left_inputs if side == "left" else self.right_inputs
-
         row_widget = QWidget()
         row_layout = QHBoxLayout(row_widget)
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(6)
-
-        # 1. Text Entry
         line_edit = QLineEdit()
         line_edit.setPlaceholderText(placeholder)
         line_edit.textChanged.connect(self.update_preview)
-
-        # 2. Custom Dropdown Menu with QCheckBox and QLineEdit
         options_dropdown = CustomOptionDropdown(self.category)
         options_dropdown.valueChanged.connect(self.update_preview)
-
         row_layout.addWidget(line_edit, stretch=3)
         row_layout.addWidget(options_dropdown, stretch=1)
-
         item_tuple = (line_edit, options_dropdown)
         target_list.append(item_tuple)
-
-        # 3. Optional Remove Button
         if removable:
             remove_btn = QPushButton("✕")
             remove_btn.setObjectName("removeBtn")
@@ -340,18 +301,13 @@ class ApparatusCreatorDialog(QDialog):
         data = self.CATEGORIES.get(category_name)
         if not data:
             return
-
         self.category_description.setText(data["desc"])
-
         self._clear_layout(self.left_layout, self.left_inputs)
         self._clear_layout(self.right_layout, self.right_inputs)
-
         self.left_ph = data.get("left_placeholder", "Left Reading")
         self.add_reading_field("left", placeholder=self.left_ph)
-
         self.right_ph = data.get("right_placeholder", "Right Reading")
         self.add_reading_field("right", placeholder=self.right_ph)
-
         expandable_side = data.get("expandable_side")
         self.add_left_btn.setVisible(expandable_side == "left")
         self.add_right_btn.setVisible(expandable_side == "right")
@@ -369,13 +325,10 @@ class ApparatusCreatorDialog(QDialog):
         return f'<span style="color: {color};">{escaped_text}</span>'
 
     def _get_row_preview_html(self, line_edit: QLineEdit, options_dropdown: CustomOptionDropdown) -> str:
-        """Formats the text and options with separate HTML colors for the preview."""
         raw_text = line_edit.text().strip()
         mod = options_dropdown.get_value()
         if not raw_text:
             return ""
-
-        # Colors for preview
         text_color = QColor("green").lighter(300).name()
         mod_color = QColor("cyan").name()
         uncertain_color = QColor("purple").lighter(200).name()
