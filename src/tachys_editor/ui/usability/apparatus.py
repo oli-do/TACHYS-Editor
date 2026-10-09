@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from tachys_editor.ui.highlighter import set_color
 
 
 class CustomOptionDropdown(QPushButton):
@@ -119,7 +120,6 @@ class ApparatusCreatorDialog(QDialog):
         self.right_ph: str = ""
         self.category: str = ""
         self._init_ui()
-        self._apply_styles()
         self.on_category_changed(self.combo_apparatus.currentText())
 
     def _init_ui(self):
@@ -192,59 +192,6 @@ class ApparatusCreatorDialog(QDialog):
         button_box.rejected.connect(self.reject)
 
         main_layout.addWidget(button_box)
-
-    def _apply_styles(self):
-        self.setStyleSheet("""
-            QDialog {
-                background-color: #F8F9FA;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 1px solid #E0E0E0;
-                border-radius: 6px;
-                margin-top: 8px;
-                padding-top: 12px;
-                background-color: #FFFFFF;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                left: 10px;
-                padding: 0 4px;
-                color: #333333;
-            }
-            QLineEdit, QComboBox, QPushButton {
-                border: 1px solid #CCCCCC;
-                border-radius: 4px;
-                padding: 6px 10px;
-                background-color: #FFFFFF;
-            }
-            QLineEdit:focus, QComboBox:focus {
-                border: 1px solid #0066CC;
-            }
-            QFrame#optionsPopup {
-                background-color: #FFFFFF;
-                border: 1px solid #CCCCCC;
-                border-radius: 6px;
-            }
-            QLabel#previewLabel {
-                background-color: #2B2B2B;
-                color: #A9B7C6;
-                border-radius: 6px;
-                padding: 12px;
-            }
-            QPushButton#removeBtn {
-                background-color: #FFF0F0;
-                color: #CC0000;
-                border: 1px solid #FFCCCC;
-                border-radius: 4px;
-                font-weight: bold;
-                padding: 4px 8px;
-            }
-            QPushButton#removeBtn:hover {
-                background-color: #FFCCCC;
-            }
-        """)
 
     def _clear_layout(
         self, layout: QVBoxLayout, target_list: list[tuple[QLineEdit, CustomOptionDropdown]]
@@ -329,9 +276,9 @@ class ApparatusCreatorDialog(QDialog):
         mod = options_dropdown.get_value()
         if not raw_text:
             return ""
-        text_color = QColor("green").lighter(300).name()
-        mod_color = QColor("cyan").name()
-        uncertain_color = QColor("purple").lighter(200).name()
+        text_color = QColor(set_color('green')).name()
+        mod_color = QColor(set_color('blue')).name()
+        uncertain_color = QColor(set_color('purple')).name()
 
         text_html = self._format_span(raw_text, text_color)
         if mod:
@@ -348,7 +295,7 @@ class ApparatusCreatorDialog(QDialog):
         left_vals = [self._get_row_preview_html(le, dd) for le, dd in self.left_inputs if le.text().strip()]
         right_vals = [self._get_row_preview_html(le, dd) for le, dd in self.right_inputs if le.text().strip()]
 
-        purple_color = QColor("purple").lighter(300).name()
+        purple_color = QColor(set_color('purple')).name()
         left_text = f"{self._format_span('|', purple_color)}".join(left_vals)
         right_text = f"{self._format_span('|', purple_color)}".join(right_vals)
 

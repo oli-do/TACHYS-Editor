@@ -158,7 +158,10 @@ def combine_div_name(start_div: Tag):
     divs.append(start_div)
     for div in divs:
         attrs = div.attrs
-        n = str(attrs['n'])
+        try:
+            n = str(attrs['n'])
+        except KeyError:
+            continue
         if 'subtype' in attrs:
             subtype = str(attrs['subtype'])
             combined_names.append(f'{subtype} {n}')

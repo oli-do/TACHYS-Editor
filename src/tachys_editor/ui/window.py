@@ -21,10 +21,11 @@ from ..core.transformers.xml_transformer import EpiDocTransformer
 from ..core.transformers.tei_builder import TEIBuilder
 from ..core.transformers.preview import EpiDoc2HTML
 from ..core.ai import AIManager
-from ..shared.settings import tracking_dir, settings_mgr, app_name, get_screen_metrics
+from ..shared.settings import tracking_dir, settings_mgr, app_name, get_screen_metrics, __version__
 from ..shared.objects import parser
 from ..shared.transformer_helper import validate_epidoc_tei
 from .preferences import PreferencesDialog
+from .usability.apparatus import ApparatusCreatorDialog
 
 from importlib.resources import files
 documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_documentation.html'))
@@ -57,16 +58,17 @@ class TachysEditorWindow(QMainWindow):
         self.msg = QMessageBox()
         self.file_path = ''
         self.file_id = None
-        # Menus
-        self.menubar = self.menuBar()
-        self.init_ui()
-        self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
-        self.action_view_changes = self.get_menu_action(self.menubar, 'View Changes')
         # Docks and Dialogs
         self.bottom_dock = BottomDock(self.editor)
         self.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, self.bottom_dock)
         self.editor.debug_worker.signal_error_info.connect(self.bottom_dock.on_problems_received)
         self.preferences_dialog = PreferencesDialog()
+        self.apparatus_creator_dialog = ApparatusCreatorDialog()
+        # Menus
+        self.menubar = self.menuBar()
+        self.init_ui()
+        self.action_track_changes = self.get_menu_action(self.menubar, 'Track Changes')
+        self.action_view_changes = self.get_menu_action(self.menubar, 'View Changes')
         # New File
         if settings_mgr.editor.last_file_:
             self.open_file(settings_mgr.editor.last_file_)
@@ -118,6 +120,7 @@ class TachysEditorWindow(QMainWindow):
         # Insert Menu
         insert_menu = self.menubar.addMenu('Insert')
         submenu_apparatus = QMenu('Apparatus', self)
+        self.add_menu_action(submenu_apparatus, 'Open Apparatus Creator...', self.show_apparatus_creator_dialog)
         self.add_menu_action(submenu_apparatus, 'Alternate Reading', lambda: self.insert_str('<:{text}|alt|:>'))
         self.add_menu_action(submenu_apparatus, 'Alternate Reading (multiple)', lambda: self.insert_str('<:{text}||alt||α|β:>'))
         self.add_menu_action(submenu_apparatus, 'Editorial Correction', lambda: self.insert_str('<:{text}|ed|:>'))
@@ -267,7 +270,14 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', documentation_path, True))
         self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('Sigla, Special Characters, Scribal Punctuation & Glyphs', 'https://github.com/papyri/site-docs/blob/master/gtypes.md'))
         self.add_menu_action(help_menu, 'EpiDoc Guidelines', lambda: self.show_in_web('EpiDoc Guidelines','https://epidoc.stoa.org/gl/latest/'))
+        QMenu.addSeparator(help_menu)
+        self.add_menu_action(help_menu, 'About TACHYS Editor', lambda: QMessageBox.information(self, f'About TACHYS Editor', f'TACHYS Editor v{__version__}\nCopyright © 2026 Oliver Donath\nThis software is licensed under the terms and conditions of PolyForm Noncommercial 1.0.0.'))
         self.menubar.addMenu(help_menu)
+
+    def show_apparatus_creator_dialog(self):
+        result = self.apparatus_creator_dialog.exec_()
+        if result:
+            self.insert_str(self.apparatus_creator_dialog.get_raw_text())
 
     def show_in_web(self, window_name, url, local=False):
         self.webview.setWindowTitle(window_name)

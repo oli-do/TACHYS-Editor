@@ -129,6 +129,14 @@ class TachysParser(QObject):
     def set_unicode_normalization(self, norm: Literal['NFC', 'NFD']):
         self.unicode_normalization = norm
 
+    @staticmethod
+    def get_nfc_position(nfd_str: str, nfd_pos: int) -> int:
+        if nfd_pos >= len(nfd_str):
+            return len(unicodedata.normalize("NFC", nfd_str))
+        while nfd_pos > 0 and unicodedata.combining(nfd_str[nfd_pos]) != 0:
+            nfd_pos -= 1
+        return len(unicodedata.normalize("NFC", nfd_str[:nfd_pos]))
+
     def set_print_debug_info(self, print_debug_info: bool):
         self.print_debug_info = print_debug_info
 
@@ -178,6 +186,8 @@ class TachysParser(QObject):
                     needs_validation.append(error.line)
             elif error.id == 2:
                 needs_validation.append(error.line)
+            if self.unicode_normalization == 'NFD':
+                error.column = self.get_nfc_position(lines[error.line], error.column - 2) + 1
         if not needs_validation:
             return errors, transformed
         pairs = []

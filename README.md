@@ -52,7 +52,7 @@ TACHYS writes the following data to the *user_data_directory* of your file syste
 - A directory for git called "changes" where file changes are tracked if enabled
 
 The OS-specific *user_data_directory* (cf. [appdirs](https://pypi.org/project/appdirs/)):
-- **Windows**: C:\Users\username\AppData\Local\Oliver Donath\TACHYS Editor
+- **Windows**: C:\Users\username\AppData\Local\TACHYS Editor
 - **Linux**: /home/username/.local/share/TACHYS Editor
 - **MacOS**: /Users/username/Library/Application Support/TACHYS Editor
 
@@ -65,9 +65,9 @@ The OS-specific *user_data_directory* (cf. [appdirs](https://pypi.org/project/ap
 
 
 ## Known Issues
-| Description                                                                          | Priority | Workaround                        |
-|--------------------------------------------------------------------------------------|----------|-----------------------------------|
-| Syntax highlighting is not correctly applied in heavily nested or multiline contexts | low      | None                              |
+| Description                                                                          | Priority | Workaround |
+|--------------------------------------------------------------------------------------|----------|------------|
+| Syntax highlighting is not correctly applied in heavily nested or multiline contexts | low      | None       |
 
 
 ## Copyright & License
