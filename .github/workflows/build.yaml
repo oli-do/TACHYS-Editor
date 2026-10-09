@@ -1,0 +1,59 @@
+name: Build TACHYS Editor
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller scikit-learn
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        shell: bash
+
+      - name: Run Build Script
+        run: python build.py
+
+      - name: Package Artifact (Unix)
+        if: matrix.os != 'windows-latest'
+        run: |
+          cd dist
+          tar -czf "../TACHYS-Editor-${{ runner.os }}.tar.gz" "TACHYS Editor"
+        shell: bash
+
+      - name: Package Artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Compress-Archive -Path "dist/TACHYS Editor" -DestinationPath "TACHYS-Editor-Windows.zip"
+        shell: pwsh
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TACHYS-Editor-${{ runner.os }}
+          path: |
+            TACHYS-Editor-*.tar.gz
+            TACHYS-Editor-*.zip
+          retention-days: 1

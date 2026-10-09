@@ -6,8 +6,8 @@ from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QFontDatabase
 
 app_name = 'TACHYS Editor'
-app_author = 'Oliver Donath'
-data_dir = user_data_dir(appname=app_name, appauthor=app_author)
+data_dir = user_data_dir(appname=app_name, appauthor=False)
+__version__ = '0.9.0'
 tracking_dir = os.path.join(data_dir, 'changes')
 config_file_path = os.path.join(data_dir, 'config.json')
 

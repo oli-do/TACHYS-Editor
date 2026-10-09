@@ -1,12 +1,11 @@
 import re
 from typing import Literal
 
-import pyperclip
 import roman
 import unicodedata
 import time
 from PySide6.QtCore import Qt, QSize, QRect, QTimer, Slot
-from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QPalette, QFont
+from PySide6.QtGui import QColor, QTextCursor, QPainter, QTextCharFormat, QTextOption, QPalette, QFont, QGuiApplication
 from PySide6.QtWidgets import (QPlainTextEdit, QWidget, QTextEdit, QDialog, QLineEdit, QPushButton, QVBoxLayout, QLabel,
                                QHBoxLayout, QCompleter)
 
@@ -163,8 +162,9 @@ class TachysEditor(QPlainTextEdit):
             line_number = int(line_number)
         except (IndexError, ValueError):
             line_number = None
-        self.original_paste_text = pyperclip.paste()
-        clipboard_text = pyperclip.paste()
+        clipboard = QGuiApplication.clipboard()
+        self.original_paste_text = clipboard.text()
+        clipboard_text = clipboard.text()
         clipboard_text = unicodedata.normalize('NFC', clipboard_text)
         clipboard_text = self.paste_mgr.char_level_replacements(clipboard_text)
         clipboard_text = self.paste_mgr.replace_underdots(clipboard_text)
@@ -173,9 +173,9 @@ class TachysEditor(QPlainTextEdit):
         clipboard_text = self.paste_mgr.replace_supplied_omitted(clipboard_text)
         clipboard_text = self.paste_mgr.delete_edition_line_numbers(clipboard_text)
         clipboard_text = self.paste_mgr.multiline(clipboard_text, line_number)
-        pyperclip.copy(clipboard_text)
+        clipboard.setText(clipboard_text)
         cursor.insertText(clipboard_text)
-        pyperclip.copy(self.original_paste_text)
+        clipboard.setText(self.original_paste_text)
 
     def show_changes(self, line_diff_list: list):
         self.stop_debugging()

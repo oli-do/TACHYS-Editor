@@ -48,7 +48,7 @@ OR: " or "
 // TEXT \u1f00-\u1fb0\u1fb2-\u1fb8\u1fba-\u1fd0\u1fd2-\u1fd8\u1fda-\u1fe0\u1fe2-\u1fe8\u1fea-\u1ffe
 TEXT: /[’͵;,·˙\p{L}]+(?![\u0323\u0304])/
 TEXT_CHAR: /[\p{L}]/
-NON_DEF_TEXT: /[’͵;,·˙\p{L}]+(?![\u0323\u0304])/
+NON_DEF_TEXT: /[’͵;,·˙\p{L}\p{M}]+(?![\u0323\u0304])/
 NOTE_TEXT: /.[^*]+/
 NAME: /[a-zA-Z]+/
 RESP: /[ \-.:,()\p{L}0-9]+/
