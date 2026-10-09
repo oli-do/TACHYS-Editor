@@ -1,11 +1,16 @@
-name: Build TACHYS Editor
+name: Build and Release TACHYS Editor
 
 on:
   push:
     branches: [ "main", "master" ]
+    tags:
+      - 'v*'
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -18,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.4.0
         with:
           python-version: "3.13"
           cache: "pip"
@@ -50,10 +55,33 @@ jobs:
         shell: pwsh
 
       - name: Upload Build Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: TACHYS-Editor-${{ runner.os }}
           path: |
             TACHYS-Editor-*.tar.gz
             TACHYS-Editor-*.zip
           retention-days: 1
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4.1.8
+        with:
+          path: release-assets
+          pattern: TACHYS-Editor-*
+          merge-multiple: true
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            release-assets/*.tar.gz
+            release-assets/*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
