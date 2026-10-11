@@ -27,7 +27,6 @@ It provides helpful functions to make encoding as simple, correct, and fast as p
 | Name                 | Description                                                                                                                                     | Leiden++                                    | XML                                  |
 |----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------|--------------------------------------|
 | Underline            | Indicates text that is underlined                                                                                                               | <b>\_</b>αβγ<b>_</b>                        | \<hi rend="underline">αβγ\</hi>      |
-| Corrected Text       | Indicates corrected text, e.g. by text added above line, that has not been erased                                                               | <b>[[</b>αβγ<b>]]</b>                       | \<del rend="corrected">αβγ\</del>    |
 | EpiDoc-XML Injection | Indicates injected EpiDoc XML. Be aware that only short in-line injections with inner text in the default language are supported at the moment. | 1. αβ<b>§</b>\<unclear>γ\</unclear><b>§</b> | \<lb n="1"/>αβ\<unclear>γ\</unclear> | 
 
 Note: Leiden++ is incompatible with regular Leiden+, which means that the Papyrological Editor (PE) on papyri.info will treat it as erroneous. 
@@ -55,20 +54,6 @@ The OS-specific *user_data_directory* (cf. [appdirs](https://pypi.org/project/ap
 - **Windows**: C:\Users\username\AppData\Local\TACHYS Editor
 - **Linux**: /home/username/.local/share/TACHYS Editor
 - **MacOS**: /Users/username/Library/Application Support/TACHYS Editor
-
-## Planned Features
-(*Ranked from higher to lower priority*)
-- Metadata Editor
-- AI integration
-- Change all line numbers within a \<div>
-- Change tracking overhaul
-
-
-## Known Issues
-| Description                                                                          | Priority | Workaround |
-|--------------------------------------------------------------------------------------|----------|------------|
-| Syntax highlighting is not correctly applied in heavily nested or multiline contexts | low      | None       |
-
 
 ## Copyright & License
 **Required Notice**: Copyright Oliver Donath (https://github.com/oli-do). 
