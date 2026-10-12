@@ -27,7 +27,11 @@ class EpiDoc2HTML(EpiDocTransformer):
     def reset(self):
         self.text = ''
         self.errors = []
+        self.line_name: str = ''
         self.apparatus_dict = {}
+        self.resp_map: dict = {}
+        self.is_searching_word_context = False
+        self.previous_lb_num = -1
 
     def transform(self, xml: Path | str):
         self.reset()
@@ -354,9 +358,9 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             cert_low = ''
         if place == 'above':
-            return '<sup>', f'{cert_low}</sup>'
+            return '\\', f'{cert_low}/'
         elif place == 'below':
-            return '<sub>', f'{cert_low}</sub>'
+            return '/', f'{cert_low}\\'
         elif place == 'left':
             self.add_to_apparatus(f'in marg. sin. {text}{cert_low}', str(node))
             return '', ''
@@ -650,9 +654,8 @@ class EpiDoc2HTML(EpiDocTransformer):
         if text:
             text = remove_diacritics_punctuation(text)
             if text in expan_map:
-                self.add_to_apparatus(self.convert(node), str(node))
+                self.add_to_apparatus(f'{expan_map[text]} Pap.', str(node))
                 node.clear()
-                return expan_map[text], ''
         return '', ''
 
     def ex(self, node: Tag):
@@ -671,19 +674,17 @@ class EpiDoc2HTML(EpiDocTransformer):
             if not parent_has_navigable_strings:
                 for key, value in self.ex_start_map.items():
                     if text.startswith(key):
-                        self.add_to_apparatus(f'({self.convert(node)})', str(node))
-                        node.clear()
-                        return value, ''
+                        self.add_to_apparatus(f'{value} Pap.', str(node))
             else:
                 if text in ex_match_map:
                     context = self.get_word_context(node)
                     prefix = context["prefix"]
                     suffix = context["suffix"]
+                    print(prefix, suffix)
                     if not self.is_searching_word_context:
-                        self.add_to_apparatus(f'{prefix}({self.convert(node)}){suffix}', str(node))
-                    node.clear()
-                    return ex_match_map[text], ''
-        return '(', f'{cert_low})'
+                        self.add_to_apparatus(f'{prefix}{ex_match_map[text]}{suffix} Pap.', str(node))
+        node.clear()
+        return '(', f'{text}{cert_low})'
 
     @staticmethod
     def abbr(node: Tag):

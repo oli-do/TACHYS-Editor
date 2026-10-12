@@ -1,75 +1,82 @@
-## About 
-**TACHYS Editor** is a QT-based editor for encoding texts in Leiden+ according to the EpiDoc standard. 
-It provides helpful functions to make encoding as simple, correct, and fast as possible.
+# TACHYS Editor
+
+> A Qt-based desktop editor for encoding papyrological texts in **Leiden+** according to the **EpiDoc TEI-XML** standard.
+
+[![Stage](https://img.shields.io/badge/stage-beta-orange)](#about)
+[![Python Version](https://img.shields.io/badge/python-%E2%89%A5%203.9-blue)](https://www.python.org/)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](LICENSE)
+
+---
+
+## About
+
+**TACHYS Editor** is designed to make Leiden+ encoding as simple, correct, and fast as possible. 
+
+> [!NOTE]  
+> TACHYS Editor is currently in **Beta**. Features and grammar specifications are subject to change.
+> Feel free to [open an issue](https://github.com/oli-do/TACHYS-Editor/issues) if you encounter any bugs or unexpected behavior.
+
+---
 
 ## Main Features
-- **Live Debugging** with error highlighting for Leiden+ and EpiDoc XML
-- **Extended Leiden+ grammar (Leiden++)** for features yet unsupported by the Papyrological Editor
-- **Improved Leiden+ grammar** with fixes for common issues
-- **EpiDoc-XML Injection**: Write hybrid mark-up code by injecting EpiDoc XML into your Leiden+ syntax
-- **Syntax Highlighting** for increased readability
-- **Character Whitelist for Various Languages**: Full support for Latin, Coptic, Ancient Greek (which, for instance, proactively avoids typos produced by confusing Latin and Greek characters)
-- **Keyboard Shortcuts** for frequently used Leiden+ expressions
-- **Automatic Line Numbering**
-- **Automatic \<div> Numbering**
-- **Automatic Numeral Conversion** (according to the Byzantine system)<sup>2</sup>
-- **IntelliPaste** featuring automatic lunate sigma conversion and much more when text is pasted<sup>2</sup>
-- **Prediction of Orthographic Regularizations** based on highly performant machine-learning techniques
-- **Leiden+ to XML conversion**: Convert your texts into TEI-XML according to the EpiDoc guidelines
-- **XML to Leiden+ conversion**: Integrate your Leiden+ encoded text directly into the TEI structure
-- **HTML preview**: View a digital edition of your text in your browser
-- **Git-based Change Tracking** for peer review (view changes, export changes, import changes)<sup>1</sup>
 
-<sup>1</sup> Feature in development - works but has not yet reached the intended quality.  
-<sup>2</sup> Feature currently supports only Ancient Greek
+- **Live Debugging**: Real-time error highlighting for Leiden+ and EpiDoc XML.
+- **Extended & Improved Grammar**: Provides extended syntax features and fixes common Leiden+ encoding issues.
+- **EpiDoc-XML Injection**: Embed raw EpiDoc-XML tags directly inside Leiden+ syntax.
+- **IntelliPaste** *(Greek only / Beta)*: Smart paste (via `Ctrl+Shift+V`) featuring automatic lunate sigma conversion and character handling.
+- **Orthographic Regularization Prediction**: Suggests regularized forms using lightweight machine-learning models.
+- **Bidirectional Conversion**: EpiDOC-XML ↔ Leiden+
+- **HTML Preview** *(Beta)*: Preview a digital edition directly in your web browser.
+- **Quality-of-Life features**:
+  - Symbol (`<g type="...">`) autocompletion & suggestions.
+  - Automatic line (`<lb/>`) and division (`<div/>`) numbering.
+  - Automatic Byzantine numeral conversion *(Ancient Greek)*.
+  - Character whitelist filtering (currently for Latin, Coptic, Ancient Greek).
+  - Keyboard shortcuts for standard Leiden+ markup.
 
-## Leiden++ (Extended Leiden+ Grammar)
-| Name                 | Description                                                                                                                                     | Leiden++                                    | XML                                  |
-|----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------|--------------------------------------|
-| Underline            | Indicates text that is underlined                                                                                                               | <b>\_</b>αβγ<b>_</b>                        | \<hi rend="underline">αβγ\</hi>      |
-| Corrected Text       | Indicates corrected text, e.g. by text added above line, that has not been erased                                                               | <b>[[</b>αβγ<b>]]</b>                       | \<del rend="corrected">αβγ\</del>    |
-| EpiDoc-XML Injection | Indicates injected EpiDoc XML. Be aware that only short in-line injections with inner text in the default language are supported at the moment. | 1. αβ<b>§</b>\<unclear>γ\</unclear><b>§</b> | \<lb n="1"/>αβ\<unclear>γ\</unclear> | 
+---
 
-Note: Leiden++ is incompatible with regular Leiden+, which means that the Papyrological Editor (PE) on papyri.info will treat it as erroneous. 
-However, the TEI-XML generated by TACHYS is correct and fully conform to the EpiDoc standard.
+## Leiden++ (Extended Grammar)
 
-## Quick Guide
-### Setup (Windows, Linux, MacOS)
-- **Required**: Download and run a pre-built executable from "Releases" <u><b>or</b></u> Download and run the source code (main.py) after installing the requirements listed in requirements.txt
-- **Recommended**: Install the font [IFAO-Grec Unicode](https://wiki.digitalclassicist.org/IFAOGrec_Unicode)
-- <i>Optional: Install [git](https://git-scm.com/) to enable change tracking features (TACHYS uses [GitPython](https://pypi.org/project/GitPython/0.3.2/) for change tracking).
-When git is installed, a menu action called "Changes" should automatically appear in the menu bar. An application 
-restart may be required.</i>
+Leiden++ introduces custom syntax extensions to solve limitations in standard Leiden+. 
 
-### How to encode faster with TACHYS
-- Use shortcuts on marked text (e.g. Ctrl+0 will instantly apply numeral markup)
-- Use **IntelliPaste** (Ctrl+Shift+V)
+| Feature               | Description                                       | Leiden++                   | EpiDoc XML Output                   |
+|:----------------------|:--------------------------------------------------|:---------------------------|:------------------------------------|
+| **Underline**         | Indicates text that is underlined in the original | `_αβγ_`                    | `<hi rend="underline">αβγ</hi>`     |
+| **EpiDoc Injections** | Allows to add inline XML tags directly to Leiden+ | `αβ§<unclear>γ</unclear>§` | `<lb n="1"/>αβ<unclear>γ</unclear>` |
 
-### Local Files
-TACHYS writes the following data to the *user_data_directory* of your file system:
-- A config file "config.json"
-- A crashlog file "crashlog.txt" which provides information in case of an unexpected application crash
-- A directory for git called "changes" where file changes are tracked if enabled
+> [!WARNING]  
+> **Compatibility Note:** Leiden++ syntax is specific to TACHYS Editor and is **not compatible** with the Papyrological Editor (PE) on papyri.info. However, all exported TEI-XML generated by TACHYS is 100% EpiDoc compliant.
 
-The OS-specific *user_data_directory* (cf. [appdirs](https://pypi.org/project/appdirs/)):
-- **Windows**: C:\Users\username\AppData\Local\TACHYS Editor
-- **Linux**: /home/username/.local/share/TACHYS Editor
-- **MacOS**: /Users/username/Library/Application Support/TACHYS Editor
+---
 
-## Planned Features
-(*Ranked from higher to lower priority*)
-- Metadata Editor
-- AI integration
-- Change all line numbers within a \<div>
-- Change tracking overhaul
+## Getting Started
 
+### Prerequisites
 
-## Known Issues
-| Description                                                                          | Priority | Workaround |
-|--------------------------------------------------------------------------------------|----------|------------|
-| Syntax highlighting is not correctly applied in heavily nested or multiline contexts | low      | None       |
+1. **Font (Recommended)**: Download and install the [IFAO-Grec Unicode font](https://www.ifao.egnet.net/uploads/polices/IFAOGrecUnicode-v3.zip) by Jean-Luc Fournet *(required for accurate rendering in HTML preview)*.
+2. *Git (Optional): Install [Git](https://git-scm.com/) to enable built-in version tracking. Once installed, a "Changes" menu item will appear in TACHYS automatically.*
 
+### Installation
 
-## Copyright & License
+#### Option A: Pre-built Executable (easiest)
+Download the latest executable for Windows, Linux, or macOS from the [Releases](https://github.com/oli-do/TACHYS-Editor/releases) page.
+
+#### Option B: Running from Source
+* **Requirements:** Python $\ge 3.9$ (Python 3.13 recommended)
+
+```bash
+# Clone the repository
+git clone [https://github.com/oli-do/TACHYS-Editor.git](https://github.com/oli-do/TACHYS-Editor.git)
+cd TACHYS-Editor
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the editor
+python main.py
+```
+
+### Copyright & License
 **Required Notice**: Copyright Oliver Donath (https://github.com/oli-do). 
 This software is licensed under the terms and conditions of PolyForm Noncommercial 1.0.0.

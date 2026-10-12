@@ -536,18 +536,20 @@ class TachysEditorWindow(QMainWindow):
                 text = self.ed_transformer.transform(Path(path))
                 msg = QMessageBox()
                 if not text:
-                    msg.setWindowTitle('CONVERSION ERROR')
-                    msg.setText(f'XML Conversion to Leiden+ failed due to one or more XML errors. Please click "Show '
+                    msg.setIcon(QMessageBox.Icon.Critical)
+                    msg.setWindowTitle('Error: XML Conversion failed')
+                    msg.setText(f'The conversion to Leiden+ failed due to one or more errors. Please click "Show '
                                 f'Details..." for more information.')
                     msg.setDetailedText('\n'.join(self.ed_transformer.errors))
                     msg.exec()
                     return self.new_file()
                 elif text and self.ed_transformer.errors:
-                    msg.setWindowTitle('UNSUPPORTED SYNTAX ERROR')
-                    msg.setText(f'XML Conversion to Leiden+ incomplete due to unsupported syntax. The file seems to be '
-                                f'valid but the conversion process was not completely successful. Please click '
-                                f'"Show Details..." for more information and consider reporting this as a bug.')
-                    msg.setDetailedText('\n'.join(self.ed_transformer.errors))
+                    msg.setIcon(QMessageBox.Icon.Warning)
+                    msg.setWindowTitle('Error: Unsupported Syntax')
+                    msg.setText(f'The Conversion to Leiden+ produced incomplete results due to unsupported syntax. '
+                                f'All affected nodes were automatically removed from the Leiden+ code. '
+                                f'Please click "Show Details..." for more information.')
+                    msg.setDetailedText('\n\n'.join(self.ed_transformer.errors))
                     msg.exec()
                 self.xml_origin = path
             self.editor.setPlainText(text)

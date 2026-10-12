@@ -2,6 +2,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from bs4.element import Tag, NavigableString
 from tachys_editor.shared.transformer_helper import validate_epidoc_tei, EssentialAttributeMissingException
+from lxml import etree
 
 class EpiDocTransformer:
     def __init__(self):
@@ -14,7 +15,14 @@ class EpiDocTransformer:
         success, info = validate_epidoc_tei(xml)
         if success:
             if isinstance(xml, Path):
-                soup = BeautifulSoup(open(xml, 'r', encoding='utf-8'), 'lxml-xml')
+                with open(xml, "r", encoding="utf-8") as f:
+                    xml_content = f.read()
+                soup = BeautifulSoup(xml_content, "lxml-xml")
+                lxml_root = etree.fromstring(xml_content.encode("utf-8"))
+                lxml_elements = list(lxml_root.iter())
+                bs_elements = list(soup.find_all(True))
+                for bs_tag, lxml_el in zip(bs_elements, lxml_elements):
+                    bs_tag.sourceline = lxml_el.sourceline
             else:
                 soup = BeautifulSoup(xml, 'lxml-xml')
             main_div = soup.find('div', attrs={'type': 'edition'})
@@ -39,13 +47,21 @@ class EpiDocTransformer:
             return ''
 
     def unsupported_attribute_value(self, node: Tag, attribute_name: str, attribute_value: str):
-        self.errors.append(f'Unsupported attribute value: @{attribute_name}="{attribute_value}" in node {str(node)}.')
+        node_copy = node.copy_self()
+        line = f' line {node.sourceline},' if node.sourceline else ''
+        self.errors.append(f'Unsupported attribute value: @{attribute_name}="{attribute_value}" in{line} '
+                           f'node {str(node_copy)}.')
 
     def unsupported_attribute(self, node: Tag):
-        self.errors.append(f'Unsupported attribute: node {str(node)}.')
+        node_copy = node.copy_self()
+        line = f' line {node.sourceline},' if node.sourceline else ''
+        self.errors.append(f'Unsupported attribute:{line} node {str(node_copy)}.')
 
     def essential_attribute_missing(self, node: Tag, attribute_name: str):
-        msg = f'Essential attribute @{attribute_name} is missing in <{node.name}>, node {node}.'
+        node_copy = node.copy_self()
+        line = f' line {node.sourceline},' if node.sourceline else ''
+        msg = (f'Essential attribute @{attribute_name} is missing in{line} '
+               f'node {node_copy}.')
         self.errors.append(msg)
         raise EssentialAttributeMissingException(msg)
 
@@ -351,7 +367,10 @@ class EpiDocTransformer:
 
     def gap(self, node: Tag):
         attrs = node.attrs
-        reason = str(attrs['reason'])
+        try:
+            reason = str(attrs['reason'])
+        except KeyError:
+            return self.essential_attribute_missing(node, 'reason')
         if reason == 'lost':
             gap_start = '['
             gap_end = ']'
