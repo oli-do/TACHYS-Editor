@@ -13,7 +13,8 @@
 **TACHYS Editor** is designed to make Leiden+ encoding as simple, correct, and fast as possible. 
 
 > [!NOTE]  
-> TACHYS Editor is currently in **Beta**. Features and grammar specifications are subject to change. Please [report any issues or suggestions](https://github.com/oli-do/TACHYS-Editor/issues).
+> TACHYS Editor is currently in **Beta**. Features and grammar specifications are subject to change.
+> Feel free to [open an issue](https://github.com/oli-do/TACHYS-Editor/issues) if you encounter any bugs or unexpected behavior.
 
 ---
 
