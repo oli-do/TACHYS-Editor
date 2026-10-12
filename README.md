@@ -1,10 +1,10 @@
 # TACHYS Editor
 
-A Qt-based desktop editor for encoding papyrological texts in **Leiden+** according to the **EpiDoc TEI-XML** standard.
+> A Qt-based desktop editor for encoding papyrological texts in **Leiden+** according to the **EpiDoc TEI-XML** standard.
 
 [![Stage](https://img.shields.io/badge/stage-beta-orange)](#about)
 [![Python Version](https://img.shields.io/badge/python-%E2%89%A5%203.9-blue)](https://www.python.org/)
-[![License](https://img.shields.io/github/license/oli-do/TACHYS-Editor)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 
 ---
 
