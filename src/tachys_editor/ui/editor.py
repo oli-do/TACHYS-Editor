@@ -209,6 +209,7 @@ class TachysEditor(QPlainTextEdit):
     def on_contents_change(self, position, _, __):
         block = self.document().findBlock(position)
         line = block.blockNumber()
+        print(f'on_contents_change: line {line}')
         self.lines_changed.append(line)
         if line == 0:
             text = block.text().strip()

@@ -1,12 +1,12 @@
 from importlib.resources import files
-from dataclasses import dataclass
 from typing import Literal
 
 import lark.exceptions
 from PySide6.QtCore import QObject, Signal
 
-from ..shared.grammar import build_text_rules
-from .transformers.leiden_plus_transformer import LeidenPlusTransformer
+from tachys_editor.shared.grammar import build_text_rules
+from tachys_editor.shared.classes import ParserError
+from tachys_editor.core.transformers.leiden_plus_transformer import LeidenPlusTransformer
 
 import unicodedata
 from lark import Lark, exceptions
@@ -54,36 +54,6 @@ def find_multiline_pairs(lines: list[str], opening: str, closing: str = ''):
     return pairs
 
 
-@dataclass
-class ParserError:
-    """
-    Stores Error Information.
-
-    Attributes:
-        type: Type or name of the error.
-        id: Error ID:
-        line: Line number of the error.
-        column: Column number of the error.
-        char: Affected character.
-        expected: Expected set of characters.
-        details: Details of the error.
-
-    - id=0: Unexpected Characters
-    - id=1: Unexpected Token
-    - id=2: Unexpected EOF
-    - id=3: XMLError
-    - id=4: Unexpected EOF div
-    - id=5: Unexpected EOF ab
-    - id=6: Unexpected Document Start
-    """
-    type: str
-    id: int
-    line: int
-    column: int
-    char: str | None
-    expected: set[str] | None
-    details: str = ''
-
 class TachysParser(QObject):
     signal_progress = Signal(int)
     def __init__(self):
@@ -120,7 +90,7 @@ class TachysParser(QObject):
         grammar_lines[index_text_rule], grammar_lines[index_text_char_rule] = build_text_rules(lang)
         self.lang = lang
         self.grammar = '\n'.join(grammar_lines)
-        self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=False,
+        self.fast_parser = Lark(self.grammar, parser='earley', start='_leiden_line', propagate_positions=True,
                                 ambiguity='resolve', regex=True)
         self.full_parser = Lark(self.grammar, parser='earley', regex=True)
         self.errors = []
@@ -280,6 +250,7 @@ class TachysParser(QObject):
         except exceptions.UnexpectedEOF as e:
             error = ParserError(e.__class__.__name__, 2, i, e.column, None, None)
         if tree:
+            print(f'line {i}: {tree}')
             self.transformer.errors = []
             try:
                 xml = self.transformer.transform(tree)
@@ -288,5 +259,6 @@ class TachysParser(QObject):
             except lark.exceptions.VisitError as e:
                 return ParserError(e.__class__.__name__, -1, i, -1, None, None, f'{e.__class__} in {self.__class__}: {e}'), None
             if self.transformer.errors:
-                error = ParserError('XMLError', 3, i, line.find('§'), None, None)
+                error = self.transformer.errors[0]
+                error.line = i
         return error, transformed

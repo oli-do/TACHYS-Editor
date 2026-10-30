@@ -9,8 +9,7 @@ from typing import Callable
 
 from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QProgressDialog
-from PySide6.QtCore import QUrl, Qt, QTimer, SignalInstance, Slot
-from PySide6.QtWebEngineWidgets import QWebEngineView
+from PySide6.QtCore import Qt, QTimer, SignalInstance, Slot
 
 from .editor import TachysEditor
 from .docks import BottomDock
@@ -27,16 +26,12 @@ from ..shared.transformer_helper import validate_epidoc_tei
 from .preferences import PreferencesDialog
 from .usability.apparatus import ApparatusCreatorDialog
 
-from importlib.resources import files
-documentation_path = str(files('tachys_editor.resources').joinpath('leiden_plus_documentation.html'))
-
 
 class TachysEditorWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         screen_metrics = get_screen_metrics()
         self.resize(screen_metrics['window_width'], screen_metrics['window_height'])
-        self.webview = QWebEngineView()
         self.parser = TachysParser()
         self.lp_transformer = LeidenPlusTransformer()
         self.ed_transformer = EpiDocTransformer()
@@ -267,9 +262,9 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(changes_menu, 'Reset Git', self.reset_git, tooltip='Resets all tracked files')
         # Help Menu
         help_menu = self.menubar.addMenu('Help')
-        self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('Leiden+ Documentation', documentation_path, True))
-        self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('Sigla, Special Characters, Scribal Punctuation & Glyphs', 'https://github.com/papyri/site-docs/blob/master/gtypes.md'))
-        self.add_menu_action(help_menu, 'EpiDoc Guidelines', lambda: self.show_in_web('EpiDoc Guidelines','https://epidoc.stoa.org/gl/latest/'))
+        self.add_menu_action(help_menu, 'Leiden+ Documentation', lambda: self.show_in_web('https://papyri.info/docs/leiden_plus'))
+        self.add_menu_action(help_menu, 'Sigla, Special Characters, Scribal Punctuation, Glyphs', lambda: self.show_in_web('https://github.com/papyri/site-docs/blob/master/gtypes.md'))
+        self.add_menu_action(help_menu, 'EpiDoc Guidelines', lambda: self.show_in_web('https://epidoc.stoa.org/gl/latest/'))
         QMenu.addSeparator(help_menu)
         self.add_menu_action(help_menu, 'About TACHYS Editor', lambda: QMessageBox.information(self, f'About TACHYS Editor', f'TACHYS Editor v{__version__}\nCopyright © 2026 Oliver Donath\nThis software is licensed under the terms and conditions of PolyForm Noncommercial 1.0.0.'))
         self.menubar.addMenu(help_menu)
@@ -279,13 +274,9 @@ class TachysEditorWindow(QMainWindow):
         if result:
             self.insert_str(self.apparatus_creator_dialog.get_raw_text())
 
-    def show_in_web(self, window_name, url, local=False):
-        self.webview.setWindowTitle(window_name)
-        if not local:
-            self.webview.load(QUrl(url))
-        else:
-            self.webview.load(QUrl.fromLocalFile(url))
-        self.webview.show()
+    @staticmethod
+    def show_in_web(url):
+        webbrowser.open(url)
 
     def get_tracked_file_name(self):
         return str(self.file_id) + '_' + basename(self.file_path)
@@ -560,9 +551,6 @@ class TachysEditorWindow(QMainWindow):
                 cursor.setPosition(settings_mgr.editor.text_cursor_pos_)
                 self.editor.setTextCursor(cursor)
             self.editor.verticalScrollBar().setValue(settings_mgr.editor.scroll_val_)
-            return True
-        else:
-            return self.new_file()
 
     def create_leiden_file(self):
         if not self.file_id:

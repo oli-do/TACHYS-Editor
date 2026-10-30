@@ -1,5 +1,6 @@
 from lark import Transformer, v_args
 from tachys_editor.shared.transformer_helper import inner_xml, lem_rdg, validate_epidoc_tei
+from tachys_editor.shared.classes import ParserError
 from .tei_builder import TEIBuilder
 from lxml import etree
 
@@ -9,7 +10,7 @@ ns = {'tei': 'http://www.tei-c.org/ns/1.0'}
 
 class LeidenPlusTransformer(Transformer):
     tei_builder = TEIBuilder()
-    errors = []
+    errors: list[ParserError] = []
 
     # DOCUMENT START
     @v_args(inline=True)
@@ -326,8 +327,13 @@ class LeidenPlusTransformer(Transformer):
             precision = ''
         return f'<gap reason="lost"{quantity_extent} unit="character"{precision}/>{or_gap_lost}{gap_lost}'
 
-    def supplied_lost(self, children):
+    @v_args(meta=True)
+    def supplied_lost(self, meta, children):
+        column = meta.column - 1
         cert_low = children[1]
+        for child in children[0]:
+            if child.startswith('<gap reason="illegible"'):
+                self.errors.append(ParserError('SemanticError', 7, self.line, column, '.', details='Gap with illegible character must not be combined with supplied text'))
         if not cert_low:
             cert_low = ''
         return inner_xml(f'<supplied reason="lost"{cert_low}>', children[0], '</supplied>')
@@ -525,7 +531,9 @@ class LeidenPlusTransformer(Transformer):
     def XML_TAG(self, children):
         return ''.join(children)
 
-    def hybrid_xml(self, children):
+    @v_args(meta=True)
+    def hybrid_xml(self, meta, children):
+        column = meta.column - 1
         items = list(filter(None, children))
         xml_text = ''.join(items)
         placeholder = self.tei_builder.build_placeholder(f'<div n="1" subtype="fragment" type="textpart"><ab>{xml_text}</ab></div>')
@@ -540,5 +548,5 @@ class LeidenPlusTransformer(Transformer):
                 else:
                     return xml_text
         else:
-            self.errors = output
+            self.errors.append(ParserError('XMLError', 3, self.line, column, '§', details=output))
             return ''
