@@ -51,8 +51,8 @@ TEXT_CHAR: /[\p{L}]/
 NON_DEF_TEXT: /[’͵;,·˙\p{L}\p{M}]+(?![\u0323\u0304])/
 NOTE_TEXT: /.[^*]+/
 NAME: /[a-zA-Z]+/
-RESP: /[ \-.:,()\p{L}0-9]+/
-RESP_NO_COLON: /[ \-.,()\p{L}0-9]+/
+RESP: /[ \-.:,()\p{L}\p{M}0-9]+/
+RESP_NO_COLON: /[ \-.,()\p{L}\p{M}0-9]+/
 NAME_HYPHEN: /[a-zA-Z\-]+/
 NAME_OR_NUMBER: /[a-zA-Z0-9+]+/
 FRACTION: /[0-9]+\/[0-9]+/

@@ -5,8 +5,8 @@ import os
 import threading
 import re
 
-from .parser import ParserError
-from ..shared.objects import parser
+from tachys_editor.shared.objects import parser
+from tachys_editor.shared.classes import ParserError
 
 
 def debug(line: str, i: int):
@@ -101,7 +101,7 @@ class DebugWorker(QObject):
                                 self.xml_lines[k + delta] = val
                         self.xml_lines = {k: v for k, v in self.xml_lines.items() if k < len_current_lines}
                         end_idx = max(start + delta - 1, -1)
-                        self.lines_changed_indices = list(range(start, end_idx, -1))
+                        self.lines_changed_indices = list(range(start + 1, end_idx, -1))
             print('DebugWorker: check lines', self.lines_changed_indices)
             self.errors = [e for e in self.errors if not e.line in self.lines_changed_indices and not e.line > max_index_current_lines]
             futures = [self.debug_executor.submit(debug, self.current_lines[i], i) for i in self.lines_changed_indices if i < len_current_lines]

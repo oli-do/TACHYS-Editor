@@ -57,6 +57,7 @@ class BottomDock(QDockWidget):
 
     @Slot(list)
     def on_problems_received(self, problems: list[tuple[int, int, int, str, str]]):
+        problems = sorted(problems, key=lambda x: x[1])
         self.stop_spinner()
         self.setWindowTitle(f'Problems ({len(problems)})')
         if problems:
@@ -74,6 +75,7 @@ class BottomDock(QDockWidget):
         for problem in problems:
             problem_id = problem[0]
             line = problem[1]
+            problem_desc = problem[4]
             symbol: Literal['⛔', '⚠️', '🚫']
             if problem_id == 0:
                 char = problem[3]
@@ -97,6 +99,9 @@ class BottomDock(QDockWidget):
             elif problem_id == 6:
                 desc = 'Unexpected Document Start. A Leiden+ document must always start with <S=. followed by a language abbreviation.'
                 symbol = '⛔'
+            elif problem_id == 7:
+                desc = f'Semantic Error. {problem_desc}.'
+                symbol = '⚠️'
             else:
                 text = problem[4].replace('\n', ' ')
                 desc = f'Unexpected Error. {text}'
