@@ -250,7 +250,8 @@ class TachysParser(QObject):
         except exceptions.UnexpectedEOF as e:
             error = ParserError(e.__class__.__name__, 2, i, e.column, None, None)
         if tree:
-            print(f'line {i}: {tree}')
+            if self.print_debug_info:
+                print(f'line {i}: {tree}')
             self.transformer.errors = []
             try:
                 xml = self.transformer.transform(tree)

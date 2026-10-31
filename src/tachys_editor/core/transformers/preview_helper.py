@@ -214,25 +214,16 @@ def create_html_output(text: str, resp_map: dict[str, str]):
     resp_map = dict(sorted(resp_map.items(), key=lambda item: item[1]))
     title = '<h2 style="text-align:center;">PREVIEW</h2>'
     commentary = '<p>This text has been created with TACHYS Editor.</p>\n'
-    commentary += f'\n<p>{', '.join([f'{key} [{val}]' for key, val in resp_map.items()])}</p>'
-    html_output = (
-                      '<!DOCTYPE html><html style="'
-                      'margin:0; '
-                      'padding-top: 0.5cm; '
-                      'height:100%; '
-                      'width:100%; '
-                      '">'
-                      '<body style="margin:0; padding:0; height:100%; width:100%; display:grid; place-items:center; background:#f0f0f0;">'
-                      '<div style="'
-                      'font-family:IFAO-Grec Unicode; '
-                      'font-size:11px; '
-                      'width:21cm; '
-                      'border:0.5px solid gray; '
-                      'transform: scale(min(100vw / 21cm, 100vh / 29.7cm)); '
-                      'transform-origin: center; '
-                      'background: white; '
-                      'padding: 2.54cm; '
-                      'box-sizing: border-box; '
-                      'box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15); '
-                      '">') + title + commentary + text + '</div></body></html>'
+    commentary += f'\n<p>{", ".join([f"{key} [{val}]" for key, val in resp_map.items()])}</p>'
+    html_output = f"""<!DOCTYPE html>
+    <html style="margin: 0; padding: 0; height: 100%; width: 100%;">
+    <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    </head>
+    <body style="margin: 0; padding: 2cm 0; min-height: 100%; width: 100%; display: flex; justify-content: center; align-items: flex-start; background: #f0f0f0;">
+    <div style="font-family: 'IFAO-Grec Unicode'; font-size: 11px; width: 21cm; border: 0.5px solid gray; background: white; padding: 2.54cm; box-sizing: border-box; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);">
+    {title}{commentary}{text}
+    </div>
+    </body>
+    </html>"""
     return html_output
