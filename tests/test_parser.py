@@ -1,7 +1,8 @@
 import unittest
 import unicodedata
 
-from src.tachys_editor.shared.objects import parser
+from src.tachys_editor.core.parser import TachysParser
+parser = TachysParser()
 parser.set_print_debug_info(True)
 parser.set_language('grc')
 parser.set_unicode_normalization('NFC')

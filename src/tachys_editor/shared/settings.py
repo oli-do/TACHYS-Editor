@@ -72,6 +72,16 @@ class EditorShortcuts:
     handshift: str = field(default='Ctrl+H')
     underdot: str = field(default='Ctrl+U')
     orthographic_regularization: str = field(default='Ctrl+R')
+    alternate_reading: str = field(default='')
+    editorial_correction: str = field(default='')
+    scribal_correction: str = field(default='')
+    spelling_correction: str = field(default='')
+    acute: str = field(default='')
+    asper: str = field(default='')
+    circumflex: str = field(default='')
+    diaresis: str = field(default='')
+    grave: str = field(default='')
+    lenis: str = field(default='')
 
 @dataclass
 class EditorSettings:
