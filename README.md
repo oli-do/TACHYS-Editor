@@ -24,15 +24,16 @@
 - **Extended & Improved Grammar**: Provides extended syntax features and fixes common Leiden+ encoding issues.
 - **EpiDoc-XML Injection**: Embed raw EpiDoc-XML tags directly inside Leiden+ syntax.
 - **IntelliPaste** *(Greek only / Beta)*: Smart paste (via `Ctrl+Shift+V`) featuring automatic lunate sigma conversion and character handling.
-- **Orthographic Regularization Prediction**: Suggests regularized forms using lightweight machine-learning models.
-- **Bidirectional Conversion**: EpiDOC-XML ↔ Leiden+
+- **Orthographic Regularization Prediction**: Suggests regularized forms using a lightweight machine-learning model.
+- **Bidirectional Conversion**: EpiDoc-XML ↔ Leiden+
 - **HTML Preview** *(Beta)*: Preview a digital edition directly in your web browser.
-- **Quality-of-Life features**:
+- **Quality-of-Life Features**:
   - Symbol (`<g type="...">`) autocompletion & suggestions.
   - Automatic line (`<lb/>`) and division (`<div/>`) numbering.
   - Automatic Byzantine numeral conversion *(Ancient Greek)*.
   - Character whitelist filtering (currently for Latin, Coptic, Ancient Greek).
   - Keyboard shortcuts for standard Leiden+ markup.
+  - Apparatus Creator Tool: Generate apparatus tags with guided assistance
 
 ---
 
