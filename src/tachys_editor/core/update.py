@@ -19,7 +19,7 @@ class UpdateWorker(QThread):
         self.directory = directory
 
     def run(self):
-        path = os.path.join(self.directory, self.update_version)
+        path = self.directory
         os.makedirs(path, exist_ok=True)
         file_path = os.path.join(path, self.filename)
         try:
@@ -61,7 +61,8 @@ class Updater:
                                             Qt.WindowType.WindowTitleHint | Qt.WindowType.WindowMinimizeButtonHint)
         self.progress_dialog.setWindowTitle('Downloading')
         self.progress_dialog.show()
-        self.update_worker.start()
+        if isinstance(self.update_worker, UpdateWorker):
+            self.update_worker.start()
 
     @Slot(str)
     def on_finished(self, status: str):
@@ -72,13 +73,15 @@ class Updater:
         msg.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
         if status == "Success":
             downloaded_file = os.path.normpath(os.path.join(self.download_directory, self.asset_name))
-            msg.information(self.parent, 'Download complete', f'The latest version of TACHYS Editor has been '
-                                                       f'successfully downloaded to {downloaded_file}.')
+            msg.information(self.parent, 'Download Complete',
+                            f'The latest version of TACHYS Editor has been successfully downloaded to:\n'
+                            f'{downloaded_file}\n\nYou can extract the archive to your preferred directory. Please '
+                            f'ensure that TACHYS Editor is not running if you decide to overwrite existing files.')
             msg.setStandardButtons(QMessageBox.StandardButton.Ok)
         else:
-            msg.warning(self.parent, 'Download failed', 'The download of the latest version of TACHYS Editor '
-                                                 'failed. Download it manually from '
-                                                 '<a href="https://github.com/oli-do/TACHYS-Editor/releases/latest">GitHub</a>.')
+            msg.warning(self.parent, 'Download failed',
+                        'The download of the latest version of TACHYS Editor failed. Download it manually from '
+                        '<a href="https://github.com/oli-do/TACHYS-Editor/releases/latest">GitHub</a>.')
             msg.exec()
 
     def get_asset_name(self) -> str:
@@ -95,31 +98,28 @@ class Updater:
 
     def check_for_update(self):
         url = "https://api.github.com/repos/oli-do/TACHYS-Editor/releases/latest"
-        try:
-            r = requests.get(url, timeout=10, headers={'User-Agent': 'TACHYS-Editor-Updater'})
-            if r.ok:
-                data = r.json()
-                online_version = data.get("tag_name", "").lstrip("v")
-                assets = data.get('assets', [])
-                asset_name = self.get_asset_name()
-                download_url = next((a['browser_download_url'] for a in assets if a.get('name') == asset_name), None)
-                if not download_url:
-                    raise RuntimeError(f"No download url found for {asset_name}")
-                if version.parse(online_version) > version.parse(__version__):
-                    msg = QMessageBox(self.parent)
-                    msg.setWindowTitle('New version available')
-                    msg.setText(f'TACHYS Editor has been updated to v{online_version}. \n\n'
-                                'Would you like to download the latest version now? '
-                                'You will still be able to use the editor in the meantime.')
-                    msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                    if msg.exec() == QMessageBox.StandardButton.Yes:
-                        file_dialog = QFileDialog()
-                        file_dialog.setWindowTitle('Select the download directory')
-                        self.download_directory = file_dialog.getExistingDirectory()
-                        if self.download_directory:
-                            self.update_worker = UpdateWorker(download_url, online_version, self.download_directory, asset_name)
-                            self.update_worker.progress.connect(self.update_progress_dialog)
-                            self.update_worker.finished.connect(self.on_finished)
-                            self.start_update()
-        except Exception as e:
-            print(f'Update check failed: {e}')
+        r = requests.get(url, timeout=10, headers={'User-Agent': 'TACHYS-Editor-Updater'})
+        if r.ok:
+            data = r.json()
+            online_version = data.get("tag_name", "").lstrip("v")
+            assets = data.get('assets', [])
+            asset_name = self.get_asset_name()
+            download_url: str = next((a['browser_download_url'] for a in assets if a.get('name') == asset_name), '')
+            if not download_url:
+                raise RuntimeError(f"No download url found for {asset_name}")
+            if version.parse(online_version) > version.parse(__version__):
+                msg = QMessageBox(self.parent)
+                msg.setWindowTitle('New version available')
+                msg.setText(f'TACHYS Editor has been updated to v{online_version}.\n\n'
+                            'Would you like to download the latest version now? '
+                            'You will still be able to use the editor in the meantime.')
+                msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if msg.exec() == QMessageBox.StandardButton.Yes:
+                    file_dialog = QFileDialog()
+                    file_dialog.setWindowTitle('Select the download directory')
+                    self.download_directory = file_dialog.getExistingDirectory()
+                    if self.download_directory:
+                        self.update_worker = UpdateWorker(download_url, online_version, self.download_directory, asset_name)
+                        self.update_worker.progress.connect(self.update_progress_dialog)
+                        self.update_worker.finished.connect(self.on_finished)
+                        self.start_update()
