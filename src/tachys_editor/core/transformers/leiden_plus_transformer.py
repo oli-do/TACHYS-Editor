@@ -333,7 +333,7 @@ class LeidenPlusTransformer(Transformer):
         cert_low = children[1]
         for child in children[0]:
             if child.startswith('<gap reason="illegible"'):
-                self.errors.append(ParserError('SemanticError', 7, self.line, column, '.', details='Gap with illegible character must not be combined with supplied text'))
+                self.errors.append(ParserError('SemanticError', 7, -1, column, '.', details='Gap with illegible character must not be combined with supplied text'))
         if not cert_low:
             cert_low = ''
         return inner_xml(f'<supplied reason="lost"{cert_low}>', children[0], '</supplied>')
@@ -548,5 +548,5 @@ class LeidenPlusTransformer(Transformer):
                 else:
                     return xml_text
         else:
-            self.errors.append(ParserError('XMLError', 3, self.line, column, '§', details=output))
+            self.errors.append(ParserError('XMLError', 3, -1, column, '§', details=output))
             return ''

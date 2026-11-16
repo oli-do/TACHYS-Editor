@@ -3,16 +3,40 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QFormLayout, QCheckBox, QComboBox, QScrollArea,
     QSpinBox, QDialogButtonBox, QLabel, QKeySequenceEdit, QMessageBox, QStyleFactory, QToolButton, QToolTip
 )
-from PySide6.QtGui import QCursor, QFontDatabase
+from PySide6.QtGui import QCursor, QFontDatabase, QKeySequence
 from PySide6.QtCore import Slot
 from ..shared.settings import settings_mgr
 from dataclasses import fields
+
+
+def get_blocked_keys():
+    blocked_keys = {}
+    standard_keys = {
+        QKeySequence.StandardKey.New: 'New',
+        QKeySequence.StandardKey.Open: 'Open',
+        QKeySequence.StandardKey.Save: 'Save',
+        QKeySequence.StandardKey.SaveAs: 'Save As',
+        QKeySequence.StandardKey.Copy: 'Copy',
+        QKeySequence.StandardKey.Cut: 'Cut',
+        QKeySequence.StandardKey.Paste: 'Paste',
+        QKeySequence.StandardKey.Find: 'Find',
+        QKeySequence.StandardKey.Undo: 'Undo',
+        QKeySequence.StandardKey.Redo: 'Redo',
+        QKeySequence.StandardKey.SelectAll: 'Select All',
+        'Ctrl+E': 'Export to XML',
+        'Ctrl+Shift+E': 'Export to TXT'
+    }
+    for sequence, name in standard_keys.items():
+        blocked_keys[QKeySequence(sequence).toString(QKeySequence.SequenceFormat.PortableText)] = name
+    return blocked_keys
+
 
 class PreferencesDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Preferences")
         self.resize(600, 500)
+        self.blocked_keys = get_blocked_keys()
         self.registered_elements = []
         self.restart_required = False
         main_layout = QVBoxLayout(self)
@@ -37,9 +61,23 @@ class PreferencesDialog(QDialog):
         self.autosave_check = QCheckBox("Enable auto-save on exit")
         self.autosave_check.setChecked(settings_mgr.general.auto_save_on_exit)
         self.register(self.autosave_check, settings_mgr.general, 'auto_save_on_exit')
-
         layout.addRow("Auto-Save:", self.autosave_check)
+
+        self.xml_check = QCheckBox("Allow unsupported EpiDoc XML")
+        self.xml_check.setChecked(settings_mgr.general.allow_unsupported_tei)
+        self.register(self.xml_check, settings_mgr.general, 'allow_unsupported_tei')
+        xml_import_layout = self._add_help_icon(
+            self.xml_check,
+            '<b>Allow unsupported EpiDoc XML</b> enables TACHYS to convert XML yet unsupported by Leiden+ to Leiden++ using EpiDoc Injection '
+            'instead of cancelling the conversion with an error or skipping the affected node.')
+        layout.addRow("XML Import:", xml_import_layout)
+
         return tab
+
+    @staticmethod
+    def get_field_title(field_name: str):
+        field_name = field_name.replace('_', ' ')
+        return field_name.title()
 
     def _create_appearance_tab(self) -> QWidget:
         tab = QWidget()
@@ -122,8 +160,7 @@ class PreferencesDialog(QDialog):
         scroll_shortcuts_layout = QFormLayout(container_widget)
         for f in fields(settings_mgr.editor.shortcuts):
             name = f.name
-            display_name = name.replace('_', ' ')
-            display_name = display_name.title()
+            display_name = self.get_field_title(name)
             label = QLabel(display_name)
             sequence_edit = QKeySequenceEdit()
             sequence_edit.setKeySequence(getattr(settings_mgr.editor.shortcuts, f.name))
@@ -146,7 +183,6 @@ class PreferencesDialog(QDialog):
         self.registered_elements.append((ui_element, target, attribute))
 
     def save_settings(self):
-        """Write current UI state to persistent storage."""
         for element in self.registered_elements:
             ui_element, target, attr = element
             if isinstance(ui_element, QSpinBox):
@@ -184,6 +220,40 @@ class PreferencesDialog(QDialog):
         self.update_ui_values()
 
     def accept_settings(self):
-        """Called when pressing 'OK'."""
+        key_sequence_warnings = []
+        key_sequences: dict[str, list] = {}
+        for element in self.registered_elements:
+            ui_element, target, attr = element
+            if isinstance(ui_element, QKeySequenceEdit):
+                sequence = ui_element.keySequence().toString(QKeySequence.SequenceFormat.PortableText)
+                if not sequence:
+                    continue
+                if sequence in self.blocked_keys:
+                    action_name = self.blocked_keys[sequence]
+                    default_value = target.__dataclass_fields__[attr].default
+                    ui_element.setKeySequence(default_value)
+                    key_sequence_warnings.append(f'{self.get_field_title(attr)}: "{sequence}" is reserved for "{action_name}".')
+                    sequence = default_value
+                if sequence in key_sequences:
+                    key_sequences[sequence].append(element)
+                else:
+                    key_sequences[sequence] = [element]
+        for sequence, elements in key_sequences.items():
+            if len(elements) == 1:
+                continue
+            else:
+                attrs = []
+                for element in elements:
+                    ui_element, target, attr = element
+                    attrs.append(attr)
+                    default_value = target.__dataclass_fields__[attr].default
+                    ui_element.setKeySequence(default_value)
+                display_attrs = [self.get_field_title(a) for a in attrs]
+                key_sequence_warnings.append(f'{', '.join(display_attrs)}: "{sequence}" - duplicates detected.')
+
+        if key_sequence_warnings:
+            QMessageBox.warning(self, 'Key Binding Conflicts Detected',
+                                f'The following key binding conflicts were resolved by resetting each binding to '
+                                f'its default shortcut: \n\n{"\n".join(key_sequence_warnings)}')
         self.save_settings()
-        self.accept()
+        self.close()

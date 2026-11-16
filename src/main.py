@@ -10,6 +10,7 @@ app = QApplication(sys.argv)
 
 from tachys_editor.shared.settings import data_dir, settings_mgr
 from tachys_editor.shared.objects import splash, icon
+from tachys_editor.core.update import Updater
 
 app.setWindowIcon(icon)
 crash_log_file = os.path.join(data_dir, 'crashlog.txt')
@@ -48,4 +49,6 @@ if __name__ == "__main__":
     splash.showMessage('Starting TACHYS Editor...', alignment=Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter)
     window.show()
     splash.finish(window)
+    updater = Updater()
+    updater.check_for_update()
     sys.exit(app.exec())

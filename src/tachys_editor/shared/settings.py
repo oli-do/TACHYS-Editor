@@ -7,7 +7,7 @@ from PySide6.QtGui import QFontDatabase
 
 app_name = 'TACHYS Editor'
 data_dir = user_data_dir(appname=app_name, appauthor=False)
-__version__ = '0.9.1'
+__version__ = '0.10.0'
 tracking_dir = os.path.join(data_dir, 'changes')
 config_file_path = os.path.join(data_dir, 'config.json')
 
@@ -48,6 +48,7 @@ def get_screen_metrics() -> dict:
 @dataclass
 class GeneralSettings:
     auto_save_on_exit: bool = field(default=True)
+    allow_unsupported_tei: bool = field(default=False)
     last_dir_in_: str = field(default='')
     last_dir_out_: str = field(default='')
     feature_track_changes_: bool = field(default=False)
@@ -72,6 +73,16 @@ class EditorShortcuts:
     handshift: str = field(default='Ctrl+H')
     underdot: str = field(default='Ctrl+U')
     orthographic_regularization: str = field(default='Ctrl+R')
+    alternate_reading: str = field(default='')
+    editorial_correction: str = field(default='')
+    scribal_correction: str = field(default='')
+    spelling_correction: str = field(default='')
+    acute: str = field(default='')
+    asper: str = field(default='')
+    circumflex: str = field(default='')
+    diaresis: str = field(default='')
+    grave: str = field(default='')
+    lenis: str = field(default='')
 
 @dataclass
 class EditorSettings:
