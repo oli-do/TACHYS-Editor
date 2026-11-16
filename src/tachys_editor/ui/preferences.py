@@ -61,8 +61,17 @@ class PreferencesDialog(QDialog):
         self.autosave_check = QCheckBox("Enable auto-save on exit")
         self.autosave_check.setChecked(settings_mgr.general.auto_save_on_exit)
         self.register(self.autosave_check, settings_mgr.general, 'auto_save_on_exit')
-
         layout.addRow("Auto-Save:", self.autosave_check)
+
+        self.xml_check = QCheckBox("Allow unsupported EpiDoc XML")
+        self.xml_check.setChecked(settings_mgr.general.allow_unsupported_tei)
+        self.register(self.xml_check, settings_mgr.general, 'allow_unsupported_tei')
+        xml_import_layout = self._add_help_icon(
+            self.xml_check,
+            '<b>Allow unsupported EpiDoc XML</b> enables TACHYS to convert XML yet unsupported by Leiden+ to Leiden++ using EpiDoc Injection '
+            'instead of cancelling the conversion with an error or skipping the affected node.')
+        layout.addRow("XML Import:", xml_import_layout)
+
         return tab
 
     @staticmethod

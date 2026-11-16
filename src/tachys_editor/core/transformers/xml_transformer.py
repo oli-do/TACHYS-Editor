@@ -2,6 +2,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 from bs4.element import Tag, NavigableString
 from tachys_editor.shared.transformer_helper import validate_epidoc_tei, EssentialAttributeMissingException
+from tachys_editor.shared.objects import settings_mgr
 from lxml import etree
 
 class EpiDocTransformer:
@@ -47,15 +48,23 @@ class EpiDocTransformer:
             return ''
 
     def unsupported_attribute_value(self, node: Tag, attribute_name: str, attribute_value: str):
-        node_copy = node.copy_self()
-        line = f' line {node.sourceline},' if node.sourceline else ''
-        self.errors.append(f'Unsupported attribute value: @{attribute_name}="{attribute_value}" in{line} '
-                           f'node {str(node_copy)}.')
+        if not settings_mgr.general.allow_unsupported_tei:
+            node_copy = node.copy_self()
+            line = f' line {node.sourceline},' if node.sourceline else ''
+            self.errors.append(f'Unsupported attribute value: @{attribute_name}="{attribute_value}" in{line} '
+                               f'node {str(node_copy)}.')
+            return '', ''
+        else:
+            return f'§{str(node)}§', ''
 
     def unsupported_attribute(self, node: Tag):
-        node_copy = node.copy_self()
-        line = f' line {node.sourceline},' if node.sourceline else ''
-        self.errors.append(f'Unsupported attribute:{line} node {str(node_copy)}.')
+        if not settings_mgr.general.allow_unsupported_tei:
+            node_copy = node.copy_self()
+            line = f' line {node.sourceline},' if node.sourceline else ''
+            self.errors.append(f'Unsupported attribute:{line} node {str(node_copy)}.')
+            return '', ''
+        else:
+            return f'§{str(node)}§', ''
 
     def essential_attribute_missing(self, node: Tag, attribute_name: str):
         node_copy = node.copy_self()
@@ -108,8 +117,7 @@ class EpiDocTransformer:
                 subtype = ''
             return f'\n<D=.{n}{subtype}', '=D>'
         else:
-            self.unsupported_attribute_value(node, 'type', div_type)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'type', div_type)
 
     @staticmethod
     def ab(node: Tag):
@@ -218,13 +226,11 @@ class EpiDocTransformer:
             elif rend == 'underline':
                 return '<_', f'{cert_low}_>'
             else:
-                self.unsupported_attribute_value(node, 'rend', rend)
-                return '', ''
+                return self.unsupported_attribute_value(node, 'rend', rend)
         elif place == 'inline':
             return '', '|subst|'
         else:
-            self.unsupported_attribute_value(node, 'place', place)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'place', place)
 
     def milestone(self, node: Tag):
         try:
@@ -244,8 +250,7 @@ class EpiDocTransformer:
         elif rend == 'coronis':
             return '-$$-', ''
         else:
-            self.unsupported_attribute_value(node, 'rend', rend)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'rend', rend)
 
     def hi_diacritical(self, node: Tag, rend: str):
         parent = node.parent.name
@@ -289,8 +294,7 @@ class EpiDocTransformer:
             else:
                 return '', ''
         else:
-            self.unsupported_attribute_value(node, 'rend', rend)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'rend', rend)
 
     def hi(self, node: Tag):
         try:
@@ -316,8 +320,7 @@ class EpiDocTransformer:
         elif rend in ['diaeresis', 'asper', 'acute', 'grave', 'circumflex', 'lenis']:
             return self.hi_diacritical(node, rend)
         else:
-            self.unsupported_attribute_value(node, 'rend', rend)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'rend', rend)
 
     def gap_ellipsis(self, node: Tag):
         attrs = node.attrs
@@ -358,8 +361,7 @@ class EpiDocTransformer:
                 return self.essential_attribute_missing(node, 'quantity')
             return f'({intro}: ', f'{precision_low}{quantity} {unit})'
         else:
-            self.unsupported_attribute(node)
-            return '', ''
+            return self.unsupported_attribute(node)
 
     @staticmethod
     def desc(node: Tag):
@@ -380,8 +382,7 @@ class EpiDocTransformer:
         elif reason == 'ellipsis':
             return self.gap_ellipsis(node)
         else:
-            self.unsupported_attribute_value(node, 'reason', reason)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'reason', reason)
         try:
             unit = attrs['unit']
         except KeyError:
@@ -442,8 +443,7 @@ class EpiDocTransformer:
         elif reason == 'lost':
             return '[', f'{cert_low}]'
         else:
-            self.unsupported_attribute_value(node, 'reason', reason)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'reason', reason)
 
     @staticmethod
     def surplus(node: Tag):
@@ -466,8 +466,7 @@ class EpiDocTransformer:
             else:
                 return '[[', ']]'
         else:
-            self.unsupported_attribute_value(node, 'rend', rend)
-            return '', ''
+            return self.unsupported_attribute_value(node, 'rend', rend)
 
     def expan(self, node: Tag):
         return '(', ')'

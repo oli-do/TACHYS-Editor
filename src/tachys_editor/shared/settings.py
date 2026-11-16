@@ -48,6 +48,7 @@ def get_screen_metrics() -> dict:
 @dataclass
 class GeneralSettings:
     auto_save_on_exit: bool = field(default=True)
+    allow_unsupported_tei: bool = field(default=False)
     last_dir_in_: str = field(default='')
     last_dir_out_: str = field(default='')
     feature_track_changes_: bool = field(default=False)
