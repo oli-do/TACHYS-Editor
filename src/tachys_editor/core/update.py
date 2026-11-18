@@ -3,7 +3,8 @@ import sys
 import os
 from packaging import version
 from PySide6.QtCore import Qt, QThread, Signal, Slot
-from PySide6.QtWidgets import QMessageBox, QProgressDialog, QFileDialog
+from PySide6.QtWidgets import (QMessageBox, QProgressDialog, QFileDialog, QDialog, QVBoxLayout, QTextBrowser, QLabel,
+                               QDialogButtonBox, QFrame)
 from tachys_editor.shared.settings import __version__
 
 
@@ -96,11 +97,41 @@ class Updater:
         self.asset_name = asset_name
         return asset_name
 
+    @staticmethod
+    def show_update_notice(new_version: str, release_notes: str):
+        dialog = QDialog()
+        dialog.setWindowTitle('New Version Available')
+        dialog.resize(450, 450)
+        layout = QVBoxLayout(dialog)
+        label = QLabel(f'TACHYS Editor has been updated to v{new_version}.')
+        browser = QTextBrowser(dialog)
+        browser.setOpenExternalLinks(True)
+        browser.setMarkdown(release_notes)
+        splitter = QFrame()
+        splitter.setFrameShape(QFrame.Shape.HLine)
+        splitter.setFrameShadow(QFrame.Shadow.Sunken)
+        label_question = QLabel('Would you like to download the latest version now? '
+                                'You will still be able to use the editor in the meantime.')
+        layout.addWidget(label)
+        layout.addWidget(browser)
+        layout.addWidget(splitter)
+        layout.addWidget(label_question)
+        buttons = QDialogButtonBox(parent=dialog)
+        buttons.addButton(QDialogButtonBox.StandardButton.Yes)
+        buttons.addButton(QDialogButtonBox.StandardButton.No)
+        buttons.button(QDialogButtonBox.StandardButton.Yes).setText("Download Now")
+        buttons.button(QDialogButtonBox.StandardButton.No).setText("Later")
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        return dialog.exec()
+
     def check_for_update(self):
         url = "https://api.github.com/repos/oli-do/TACHYS-Editor/releases/latest"
         r = requests.get(url, timeout=10, headers={'User-Agent': 'TACHYS-Editor-Updater'})
         if r.ok:
             data = r.json()
+            release_notes = data.get('body')
             online_version = data.get("tag_name", "").lstrip("v")
             assets = data.get('assets', [])
             asset_name = self.get_asset_name()
@@ -108,13 +139,7 @@ class Updater:
             if not download_url:
                 raise RuntimeError(f"No download url found for {asset_name}")
             if version.parse(online_version) > version.parse(__version__):
-                msg = QMessageBox(self.parent)
-                msg.setWindowTitle('New version available')
-                msg.setText(f'TACHYS Editor has been updated to v{online_version}.\n\n'
-                            'Would you like to download the latest version now? '
-                            'You will still be able to use the editor in the meantime.')
-                msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                if msg.exec() == QMessageBox.StandardButton.Yes:
+                if self.show_update_notice(online_version, release_notes) == QDialog.DialogCode.Accepted:
                     file_dialog = QFileDialog()
                     file_dialog.setWindowTitle('Select the download directory')
                     self.download_directory = file_dialog.getExistingDirectory()
