@@ -55,24 +55,42 @@ class DebugWorker(QObject):
             )
             self.errors = []
 
-    def validate_structure(self, start_tag: str, end_tag: str):
+    def validate_structure(self, start_tag: str, end_tag: str, propagate_positions: bool = False,
+                           reverse: bool = False) -> list[dict] | tuple[list[dict], list[dict]]:
         stack = []
-        for match in re.finditer(f'{start_tag}|{end_tag}', self.text):
+        positions = []
+        matches = list(re.finditer(f'{start_tag}|{end_tag}', self.text))
+        if reverse:
+            matches.reverse()
+
+        for match in matches:
             token = match.group()
             start_idx = match.start()
             line_num = self.text[:start_idx].count('\n')
             last_newline = self.text.rfind('\n', 0, start_idx)
             col_num = start_idx + 1 if last_newline == -1 else start_idx - last_newline
-            if token == start_tag:
-                stack.append({
+            if token in [start_tag, end_tag]:
+                positions.append({
                     'line': line_num,
                     'col': col_num - 1,
                     'token': token
                 })
-            elif token == end_tag:
-                if stack:
-                    stack.pop()
-        return stack
+            if not reverse:
+                if token == start_tag:
+                    stack.append(positions[-1])
+                elif token == end_tag:
+                    if stack:
+                        stack.pop()
+            else:
+                if token == end_tag:
+                    stack.append(positions[-1])
+                elif token == start_tag:
+                    if stack:
+                        stack.pop()
+        if not propagate_positions:
+            return stack
+        else:
+            return stack, positions
 
     def run(self):
         if self.enabled and not self.is_running:
@@ -135,16 +153,50 @@ class DebugWorker(QObject):
     def on_finished(self):
         if self.enabled:
             self.previous_text = self.text
-            self.errors, xml = parser.validate_line_errors(self.text.splitlines(), self.errors)
+            lines = self.text.splitlines()
+            self.errors, xml = parser.validate_line_errors(lines, self.errors)
             self.send_progress_update(99)
             start_time = time()
-            self.errors = [error for error in self.errors if not error.id in [4, 5, 6]]
+            self.errors = [error for error in self.errors if not error.id in [4, 5, 6, 8, 9]]
             unclosed_div = self.validate_structure('<D=', '=D>')
             for u in unclosed_div:
-                self.errors.append(ParserError('Unexpected EOF div', 4, u['line'], u['col'], u['token'], None, ''))
-            unclosed_ab = self.validate_structure('<=', '=>')
+                self.errors.append(ParserError('Unexpected EOF div', 4, u['line'], u['col'], u['token'], None, 'Division is missing a closing statement (=D>)'))
+            unopened_div = self.validate_structure('<D=', '=D>', reverse=True)
+            for u in unopened_div:
+                self.errors.append(ParserError('Unexpected EOF div', 4, u['line'], u['col'], u['token'], None, 'Division is missing an opening statement (<D=)'))
+            unopened_ab = self.validate_structure('<=', '=>', reverse=True)
+            for u in unopened_ab:
+                self.errors.append(ParserError('Unexpected EOF ab', 5, u['line'], u['col'], u['token'], None, 'Text block is missing an opening statement (<=)'))
+            unclosed_ab, ab_positions = self.validate_structure('<=', '=>', True)
             for u in unclosed_ab:
-                self.errors.append(ParserError('Unexpected EOF ab', 5, u['line'], u['col'], u['token'], None, ''))
+                self.errors.append(ParserError('Unexpected EOF ab', 5, u['line'], u['col'], u['token'], None, 'Text block is missing a closing statement (=>)'))
+            for i in range(len(ab_positions)):
+                pos = ab_positions[i]
+                token = pos['token']
+                line = pos['line']
+                column = pos['col']
+                if i > 0 and token == '<=':
+                    previous = ab_positions[i - 1]
+                    if pos['token'] == previous['token']:
+                        self.errors.append(ParserError('Semantic Error (Text Block)', 8, line, column, '', None,
+                                                       'Text blocks (<= =>) must not be nested inside each other'))
+
+                elif i < len(ab_positions) - 1 and token == '=>':
+                    consecutive = ab_positions[i + 1]
+                    if pos['token'] == consecutive['token']:
+                        self.errors.append(ParserError('Semantic Error (Text Block)', 8, pos['line'], pos['col'], '', None,
+                                                       'Text blocks (<= =>) must not be nested inside each other'))
+                try:
+                    if token == '<=':
+                        if lines[line + 1].startswith('<D'):
+                            self.errors.append(ParserError('Structural Error', 9, line + 1, 0, '', None,
+                                                           'Starting a new division (<D=) is not allowed inside a text block (<= =>)'))
+                    if token == '=>':
+                        if lines[line - 1].startswith('=D'):
+                            self.errors.append(ParserError('Structural Error', 9, line - 1, 0, '', None,
+                                                           'End of division (=D>) is not allowed inside a text block (<= =>)'))
+                except IndexError:
+                    pass
             if not self.current_lines[0].startswith('<S='):
                 self.errors.append(ParserError('Unexpected Document Start', 6, 0, 0, '', None, ''))
             print('DebugWorker: structural integrity check took', (time() - start_time) * 1000, 'ms')

@@ -11,20 +11,21 @@ from PySide6.QtGui import QTextCursor, QAction, QTextCharFormat, QKeySequence
 from PySide6.QtWidgets import QMainWindow, QMenu, QMessageBox, QFileDialog, QProgressDialog
 from PySide6.QtCore import Qt, QTimer, SignalInstance, Slot
 
-from .editor import TachysEditor
-from .docks import BottomDock
-from ..core.change_tracker import ChangeTracker
-from ..core.parser import TachysParser
-from ..core.transformers.leiden_plus_transformer import LeidenPlusTransformer
-from ..core.transformers.xml_transformer import EpiDocTransformer
-from ..core.transformers.tei_builder import TEIBuilder
-from ..core.transformers.preview import EpiDoc2HTML
-from ..core.ai import AIManager
-from ..shared.settings import tracking_dir, settings_mgr, app_name, get_screen_metrics, __version__
-from ..shared.objects import parser
-from ..shared.transformer_helper import validate_epidoc_tei
-from .preferences import PreferencesDialog
-from .usability.apparatus import ApparatusCreatorDialog
+from tachys_editor.ui.editor import TachysEditor
+from tachys_editor.ui.docks import BottomDock
+from tachys_editor.core.change_tracker import ChangeTracker
+from tachys_editor.core.parser import TachysParser
+from tachys_editor.core.transformers.leiden_plus_transformer import LeidenPlusTransformer
+from tachys_editor.core.transformers.xml_transformer import EpiDocTransformer
+from tachys_editor.core.transformers.tei_builder import TEIBuilder
+from tachys_editor.core.transformers.preview import EpiDoc2HTML
+from tachys_editor.core.ai import AIManager
+from tachys_editor.core.update import Updater
+from tachys_editor.shared.settings import tracking_dir, settings_mgr, app_name, get_screen_metrics, __version__
+from tachys_editor.shared.objects import parser
+from tachys_editor.shared.transformer_helper import validate_epidoc_tei
+from tachys_editor.ui.preferences import PreferencesDialog
+from tachys_editor.ui.usability.apparatus import ApparatusCreatorDialog
 
 
 class TachysEditorWindow(QMainWindow):
@@ -267,6 +268,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(help_menu, 'EpiDoc Guidelines', lambda: self.show_in_web('https://epidoc.stoa.org/gl/latest/'))
         QMenu.addSeparator(help_menu)
         self.add_menu_action(help_menu, 'About TACHYS Editor', lambda: QMessageBox.information(self, f'About TACHYS Editor', f'TACHYS Editor v{__version__}\nCopyright © 2026 Oliver Donath\nThis software is licensed under the terms and conditions of PolyForm Noncommercial 1.0.0.'))
+        self.add_menu_action(help_menu, 'Check for Updates...', lambda: Updater().check_for_update(True, True))
         self.menubar.addMenu(help_menu)
 
     def show_apparatus_creator_dialog(self):

@@ -12,6 +12,10 @@ class LeidenPlusTransformer(Transformer):
     tei_builder = TEIBuilder()
     errors: list[ParserError] = []
 
+    def __add_semantic_error(self, column, text):
+        self.errors.append(ParserError('SemanticError', 7, -1, column, '.',
+                                       details=text))
+
     # DOCUMENT START
     @v_args(inline=True)
     def default_language(self, lang):
@@ -303,9 +307,6 @@ class LeidenPlusTransformer(Transformer):
             rend = ' rend="erasure"'
         return inner_xml(f'<del{rend}>', children[1], '</del>')
 
-    def deletion_corr(self, children):
-        return inner_xml('<del rend="corrected">', children[0], '</del>')
-
     def abbreviation(self, children):
         certainty_match = children[1]
         if not certainty_match:
@@ -333,7 +334,11 @@ class LeidenPlusTransformer(Transformer):
         cert_low = children[1]
         for child in children[0]:
             if child.startswith('<gap reason="illegible"'):
-                self.errors.append(ParserError('SemanticError', 7, -1, column, '.', details='Gap with illegible character must not be combined with supplied text'))
+                self.__add_semantic_error(column, 'Gap must not be combined with supplied text')
+            elif child.startswith('<supplied reason="lost"'):
+                self.__add_semantic_error(column, 'Square brackets must not be nested inside each other')
+            elif child.startswith('<gap reason="lost"'):
+                self.__add_semantic_error(column, 'Square brackets must not be nested inside each other')
         if not cert_low:
             cert_low = ''
         return inner_xml(f'<supplied reason="lost"{cert_low}>', children[0], '</supplied>')
@@ -378,11 +383,18 @@ class LeidenPlusTransformer(Transformer):
             precision = ''
         return f'<gap reason="ellipsis"{quantity_extent}{unit}{precision}><desc>{lang}</desc></gap>'
 
-    def ex(self, children):
+    @v_args(meta=True)
+    def ex(self, meta, children):
         cert_low = children[1]
+        items = children[0]
+        column = meta.column - 1
+        for child in items:
+            print('ex_child', child)
+            if child.startswith('<expan>'):
+                self.__add_semantic_error(column, 'Expansions must not be nested inside each other')
         if not cert_low:
             cert_low = ''
-        return inner_xml(f'<ex{cert_low}>', children[0], '</ex>')
+        return inner_xml(f'<ex{cert_low}>', items, '</ex>')
 
     def expansion(self, children):
         return inner_xml('<expan>', children, '</expan>')
