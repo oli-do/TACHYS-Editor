@@ -268,7 +268,7 @@ class TachysEditorWindow(QMainWindow):
         self.add_menu_action(help_menu, 'EpiDoc Guidelines', lambda: self.show_in_web('https://epidoc.stoa.org/gl/latest/'))
         QMenu.addSeparator(help_menu)
         self.add_menu_action(help_menu, 'About TACHYS Editor', lambda: QMessageBox.information(self, f'About TACHYS Editor', f'TACHYS Editor v{__version__}\nCopyright © 2026 Oliver Donath\nThis software is licensed under the terms and conditions of PolyForm Noncommercial 1.0.0.'))
-        self.add_menu_action(help_menu, 'Check for Updates...', lambda: Updater().check_for_update(True))
+        self.add_menu_action(help_menu, 'Check for Updates...', lambda: Updater().check_for_update(True, True))
         self.menubar.addMenu(help_menu)
 
     def show_apparatus_creator_dialog(self):

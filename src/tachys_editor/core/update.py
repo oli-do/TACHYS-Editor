@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, QThread, Signal, Slot
 from PySide6.QtWidgets import (QMessageBox, QProgressDialog, QFileDialog, QDialog, QVBoxLayout, QTextBrowser, QLabel,
                                QDialogButtonBox, QFrame)
 from tachys_editor.shared.settings import __version__
+from tachys_editor.shared.objects import session
 
 
 class UpdateWorker(QThread):
@@ -125,9 +126,16 @@ class Updater:
         layout.addWidget(buttons)
         return dialog.exec()
 
-    def check_for_update(self, notice_if_latest: bool = False):
+    def check_for_update(self, notice_if_latest: bool = False, display_errors: bool = False):
         url = "https://api.github.com/repos/oli-do/TACHYS-Editor/releases/latest"
-        r = requests.get(url, timeout=10, headers={'User-Agent': 'TACHYS-Editor-Updater'})
+        try:
+            r = session.get(url, timeout=(0.1, 0.1), headers={'User-Agent': 'TACHYS-Editor-Updater'})
+            r.raise_for_status()
+        except requests.exceptions.RequestException:
+            if display_errors:
+                QMessageBox.critical(self.parent, 'HTTP Request Failed',
+                                     f'Could not retrieve information from GitHub.')
+            return
         if r.ok:
             data = r.json()
             release_notes = data.get('body')
