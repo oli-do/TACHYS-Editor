@@ -97,9 +97,8 @@ class Updater:
         self.asset_name = asset_name
         return asset_name
 
-    @staticmethod
-    def show_update_notice(new_version: str, release_notes: str):
-        dialog = QDialog()
+    def show_update_notice(self, new_version: str, release_notes: str):
+        dialog = QDialog(self.parent)
         dialog.setWindowTitle('New Version Available')
         dialog.resize(450, 450)
         layout = QVBoxLayout(dialog)
@@ -126,7 +125,7 @@ class Updater:
         layout.addWidget(buttons)
         return dialog.exec()
 
-    def check_for_update(self):
+    def check_for_update(self, notice_if_latest: bool = False):
         url = "https://api.github.com/repos/oli-do/TACHYS-Editor/releases/latest"
         r = requests.get(url, timeout=10, headers={'User-Agent': 'TACHYS-Editor-Updater'})
         if r.ok:
@@ -148,3 +147,10 @@ class Updater:
                         self.update_worker.progress.connect(self.update_progress_dialog)
                         self.update_worker.finished.connect(self.on_finished)
                         self.start_update()
+            else:
+                if notice_if_latest:
+                    msg = QMessageBox(self.parent)
+                    msg.setWindowTitle('No Updates Available')
+                    msg.setText('Currently, there are no updates available. You are running the latest version of '
+                                'TACHYS Editor.')
+                    msg.exec()
