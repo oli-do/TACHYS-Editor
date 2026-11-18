@@ -90,18 +90,18 @@ class BottomDock(QDockWidget):
             elif problem_id == 3:
                 desc = f'Incorrect XML. Make sure to follow the EpiDoc guidelines.'
                 symbol = '⛔'
-            elif problem_id == 4:
-                desc = f'Incomplete Syntax. Unclosed document division.'
-                symbol = '⚠️'
-            elif problem_id == 5:
-                desc = f'Incomplete Syntax. Unclosed text block.'
+            elif problem_id in [4, 5]:
+                desc = f'Incomplete Syntax. {problem_desc}'
                 symbol = '⚠️'
             elif problem_id == 6:
                 desc = 'Unexpected Document Start. A Leiden+ document must always start with <S=. followed by a language abbreviation.'
                 symbol = '⛔'
-            elif problem_id == 7:
+            elif problem_id in [7, 8]:
                 desc = f'Semantic Error. {problem_desc}.'
                 symbol = '⚠️'
+            elif problem_id == 9:
+                desc = f'Structural Error. {problem_desc}.'
+                symbol = '⛔'
             else:
                 text = problem[4].replace('\n', ' ')
                 desc = f'Unexpected Error. {text}'

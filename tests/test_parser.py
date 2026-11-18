@@ -29,6 +29,17 @@ class TestParser(unittest.TestCase):
         test = insert('1. ')
         self.assertFalse(parser_test(test))
 
+    def test_ab_mismatch(self):
+        test = """<S=.grc
+<D=.1.fragment
+<D=.2.fragment<=
+<D=.3.fragment
+1. αβγδεφ
+=D>
+=>=D>
+=D>"""
+        self.assertTrue(parser_test(test))
+
     def test_line_position(self):
         test_list = [insert('(2, perpendicular) '),
                      insert('(8, inverse) '),

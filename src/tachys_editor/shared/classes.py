@@ -21,7 +21,9 @@ class ParserError:
     - id=4: Unexpected EOF div
     - id=5: Unexpected EOF ab
     - id=6: Unexpected Document Start
-    - id=7: Semantic Error
+    - id=7: Semantic Error (general)
+    - id=8: Semantic Error (ab)
+    - id=9: Structural Error (div inside ab)
     """
     type: str
     id: int
