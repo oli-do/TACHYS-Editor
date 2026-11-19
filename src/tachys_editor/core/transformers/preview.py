@@ -202,7 +202,7 @@ class EpiDoc2HTML(EpiDocTransformer):
                 last_origin = origin
                 last_text = text
             lines.append(' '.join(results))
-        return '<p style="font-size:9px;">' + ' ‖ '.join(lines) + '</p>\n'
+        return '<p class="apparatus" style="font-size:9px;">' + ' ‖ '.join(lines) + '</p>'
 
 
     def div(self, node: Tag):
@@ -213,14 +213,14 @@ class EpiDoc2HTML(EpiDocTransformer):
             return '', ''
         else:
             name = combine_div_name(node)
-            style_opening = '<br/><hr/><br/><h3>'
+            style_opening = '<br/><hr/><br/><h3 class="textpart">'
             style_closing = '</h3>'
         if div_type == 'textpart':
             apparatus = ''
             if self.apparatus_dict:
                 apparatus = self.generate_apparatus()
             self.apparatus_dict = {}
-            return f'{apparatus}{style_opening}{name}{style_closing}', ''
+            return f'{apparatus}\n<div class="textpart">{style_opening}{name}{style_closing}', '</div>'
         elif div_type == 'edition':
             return '', ''
         else:
@@ -232,10 +232,12 @@ class EpiDoc2HTML(EpiDocTransformer):
         return '<table>', '</table>'
 
     def lb(self, node: Tag):
+        parent = node.parent.name
         attrs = node.attrs
         try:
             lb_n = str(attrs['n'])
-            self.line_name = lb_n
+            if not parent in ['reg', 'lem', 'corr']:
+                self.line_name = lb_n
         except KeyError:
             return self.essential_attribute_missing(node, 'n')
         try:
@@ -263,8 +265,9 @@ class EpiDoc2HTML(EpiDocTransformer):
             new_line = '\n'
         if parent in ['del', 'rdg', 'corr', 'reg']:
             return '|', ''
-        close_tr = '</tr>'
-        if parent == 'ab':
+        close_tr = '</td></tr>'
+        previous_siblings = [str(s) for s in node.previous_siblings if str(s).replace('\n', '') != '']
+        if not previous_siblings:
             close_tr = ''
         if not 'rend' in attrs:
             return f'{close_tr}{new_line}<tr><td class="lb" style="padding-right: 30px;">{lb_n}</td><td>', ''
@@ -680,7 +683,6 @@ class EpiDoc2HTML(EpiDocTransformer):
                     context = self.get_word_context(node)
                     prefix = context["prefix"]
                     suffix = context["suffix"]
-                    print(prefix, suffix)
                     if not self.is_searching_word_context:
                         self.add_to_apparatus(f'{prefix}{ex_match_map[text]}{suffix} Pap.', str(node))
         node.clear()

@@ -26,6 +26,7 @@ from tachys_editor.shared.objects import parser
 from tachys_editor.shared.transformer_helper import validate_epidoc_tei
 from tachys_editor.ui.preferences import PreferencesDialog
 from tachys_editor.ui.usability.apparatus import ApparatusCreatorDialog
+from tachys_editor.core.transformers.html_docx import HTML2Docx
 
 
 class TachysEditorWindow(QMainWindow):
@@ -37,6 +38,7 @@ class TachysEditorWindow(QMainWindow):
         self.lp_transformer = LeidenPlusTransformer()
         self.ed_transformer = EpiDocTransformer()
         self.html_transformer = EpiDoc2HTML()
+        self.docx_transformer = HTML2Docx()
         self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
@@ -245,6 +247,7 @@ class TachysEditorWindow(QMainWindow):
         view_menu.addMenu(submenu_zoom)
         self.add_menu_action(view_menu, 'Problems', lambda: self.bottom_dock.setVisible(True))
         self.add_menu_action(view_menu, 'Preview (HTML)', lambda: self.export_to_xml(True))
+        self.add_menu_action(view_menu, 'Preview (DOCX)', self.export_to_docx)
         # Settings Menu
         settings_menu = self.menuBar().addMenu('Settings')
         self.add_menu_action(settings_menu, 'Preferences', lambda: self.preferences_dialog.show())
@@ -368,12 +371,16 @@ class TachysEditorWindow(QMainWindow):
         text = self.editor.toPlainText()
         self.save_file(True, text, '*.txt')
 
+    def export_to_docx(self):
+        html = self.export_to_xml(True, False)
+        self.docx_transformer.convert(html)
+
     @Slot(int)
     def update_progress_dialog(self, percentage: int):
         if isinstance(self.progress_dialog, QProgressDialog) and self.progress_dialog.isVisible():
             self.progress_dialog.setValue(percentage)
 
-    def export_to_xml(self, preview: bool=False):
+    def export_to_xml(self, preview: bool=False, save_file: bool=True):
         if self.editor.debug_worker.is_running or self.editor.debug_timer.isActive():
             self.progress_dialog = QProgressDialog()
             self.progress_dialog.setWindowTitle("Processing")
@@ -388,7 +395,7 @@ class TachysEditorWindow(QMainWindow):
         if self.editor.debug_worker.errors:
             QMessageBox.critical(self, 'Unhandled Leiden+ Errors', 'There are unhandled Leiden+ errors. '
                                                                    'Export aborted.')
-            return
+            return None
         xml_lines = [line[1] for line in sorted(self.editor.debug_worker.xml_lines.items())]
         inner_body = '\n'.join(xml_lines) + '</div>'
         if self.xml_origin:
@@ -398,14 +405,22 @@ class TachysEditorWindow(QMainWindow):
         is_valid_tei, info = validate_epidoc_tei(xml)
         if is_valid_tei:
             if not preview:
-                self.save_file(True, xml, '*.xml')
+                if save_file:
+                    self.save_file(True, xml, '*.xml')
+                    return xml
+                else:
+                    return xml
             else:
                 html_out = self.html_transformer.transform(xml)
-                with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False, encoding='utf-8') as f:
-                    f.write(html_out)
-                    temp_file_name = f.name
-                webbrowser.open('file://' + os.path.abspath(temp_file_name))
-                self.timer.singleShot(5000, lambda: os.remove(temp_file_name))
+                if save_file:
+                    with tempfile.NamedTemporaryFile('w', suffix='.html', delete=False, encoding='utf-8') as f:
+                        f.write(html_out)
+                        temp_file_name = f.name
+                    webbrowser.open('file://' + os.path.abspath(temp_file_name))
+                    self.timer.singleShot(5000, lambda: os.remove(temp_file_name))
+                    return html_out
+                else:
+                    return html_out
         else:
             msg = QMessageBox()
             msg.setWindowTitle('Export Failed')
@@ -418,6 +433,7 @@ class TachysEditorWindow(QMainWindow):
             msg.setDetailedText(error)
             msg.setIcon(QMessageBox.Icon.Critical)
             msg.exec()
+            return None
 
     def add_menu_action(self, menu: QMenu, action_name: str, action_connector: Callable | None = None, shortcut = None, tooltip: str = ''):
         action = QAction(action_name, self)

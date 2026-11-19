@@ -214,7 +214,8 @@ def create_html_output(text: str, resp_map: dict[str, str]):
     resp_map = dict(sorted(resp_map.items(), key=lambda item: item[1]))
     title = '<h2 style="text-align:center;">PREVIEW</h2>'
     commentary = '<p>This text has been created with TACHYS Editor.</p>\n'
-    commentary += f'\n<p>{", ".join([f"{key} [{val}]" for key, val in resp_map.items()])}</p>'
+    if resp_map:
+        commentary += f'\n<p>{", ".join([f"{key} [{val}]" for key, val in resp_map.items()])}</p>'
     html_output = f"""<!DOCTYPE html>
     <html style="margin: 0; padding: 0; height: 100%; width: 100%;">
     <head>
