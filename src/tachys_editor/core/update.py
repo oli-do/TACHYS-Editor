@@ -144,7 +144,7 @@ class Updater:
             asset_name = self.get_asset_name()
             download_url: str = next((a['browser_download_url'] for a in assets if a.get('name') == asset_name), '')
             if not download_url:
-                raise RuntimeError(f"No download url found for {asset_name}")
+                return
             if version.parse(online_version) > version.parse(__version__):
                 if self.show_update_notice(online_version, release_notes) == QDialog.DialogCode.Accepted:
                     file_dialog = QFileDialog()
