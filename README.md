@@ -64,7 +64,7 @@ Leiden++ introduces custom syntax extensions to solve limitations in standard Le
 Download the latest executable for Windows, Linux, or macOS from the [Releases](https://github.com/oli-do/TACHYS-Editor/releases) page.
 
 #### Option B: Running from Source
-* **Requirements:** Python $\ge 3.9$ (Python 3.13 recommended)
+* **Requirements:** Python $\ge 3.13$ (Python 3.13 recommended)
 
 ```bash
 # Clone the repository
