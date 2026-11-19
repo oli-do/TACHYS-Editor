@@ -38,7 +38,7 @@ class TachysEditorWindow(QMainWindow):
         self.lp_transformer = LeidenPlusTransformer()
         self.ed_transformer = EpiDocTransformer()
         self.html_transformer = EpiDoc2HTML()
-        self.docx_transformer = HTML2Docx()
+        self.docx_transformer = HTML2Docx(self)
         self.tei_builder = TEIBuilder()
         self.tracker = ChangeTracker(tracking_dir)
         self.ai_mgr = AIManager()
@@ -372,8 +372,10 @@ class TachysEditorWindow(QMainWindow):
         self.save_file(True, text, '*.txt')
 
     def export_to_docx(self):
-        html = self.export_to_xml(True, False)
-        self.docx_transformer.convert(html)
+        path, _ = self.file_dialog.getOpenFileName(filter='*.docx')
+        if path:
+            html = self.export_to_xml(True, False)
+            self.docx_transformer.convert(html, path)
 
     @Slot(int)
     def update_progress_dialog(self, percentage: int):

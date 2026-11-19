@@ -10,7 +10,7 @@ class HTML2Docx:
         self.doc = Document()
         self.parent = parent
 
-    def convert(self, html: Path | str):
+    def convert(self, html: Path | str, output_path: str):
         self.doc = Document()
         if isinstance(html, Path):
             soup = BeautifulSoup(open(html, encoding='utf-8'), 'html.parser')
@@ -37,7 +37,6 @@ class HTML2Docx:
                 for j in range(len(tds)):
                     cells[j].text = tds[j].get_text(strip=True)
                     td_classes = tds[j].get('class')
-                    print(td_classes)
                     if td_classes:
                         if 'lb' in td_classes:
                             cells[j].width = Cm(1.5)
@@ -51,7 +50,8 @@ class HTML2Docx:
                 run.font.size = Pt(9)
 
         try:
-            self.doc.save('C:/Users/Oliver/Desktop/test.docx')
+            self.doc.save(output_path)
+            QMessageBox.information(self.parent, 'Success', f'Successfully wrote {output_path}.')
         except PermissionError:
             QMessageBox.warning(self.parent, 'Permission Error', 'Permission Denied. Make sure the .docx file '
                                                                  'you are writing is not opened.')
