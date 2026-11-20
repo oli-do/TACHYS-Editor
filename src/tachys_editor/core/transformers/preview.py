@@ -133,8 +133,6 @@ class EpiDoc2HTML(EpiDocTransformer):
             name = 'deletion'
         if hasattr(self, name):
             function = getattr(self, name)
-            if name == 'unclear':
-                return function(node)
             start, end = function(node)
         if contents:
             result = f'{start}{self.convert(node)}{end}'
@@ -142,9 +140,26 @@ class EpiDoc2HTML(EpiDocTransformer):
         else:
             return f'{start}{end}'
 
+    @staticmethod
+    def append_char(text: str, char: str):
+        print('append_char', text)
+        new_text = ''
+        for c in text:
+            c = unicodedata.normalize('NFD', c)
+            if char in c:
+                continue
+            else:
+                c = unicodedata.normalize('NFC', c)
+            if c != ' ':
+                new_text += c + char
+            else:
+                new_text += c
+        return new_text
+
     def convert(self, node: Tag, ignore_app: bool = True) -> str:
         name = node.name
-        parent_name = node.parent.name if isinstance(node.parent, Tag) else ''
+        parent = node.parent
+        parent_name = parent.name if isinstance(node.parent, Tag) else ''
         if ignore_app:
             if name in ['corr', 'reg', 'rdg'] or (name == 'del' and parent_name == 'subst'):
                 return ''
@@ -154,18 +169,16 @@ class EpiDoc2HTML(EpiDocTransformer):
                 result.append(self.transform_node(content))
             elif isinstance(content, NavigableString):
                 result.append(str(content))
+            parent = content.parent
+            parent_name = content.parent.name
         output = ''.join(result)
         if parent_name == 'hi':
-            rend = node.parent.attrs['rend']
+            rend = parent.attrs['rend']
             if rend == 'supraline' or rend == 'supraline-underline':
-                supraline_text = ''
-                for text in result:
-                    for c in text:
-                        if c != ' ':
-                            supraline_text += c + '\u0305'
-                        else:
-                            supraline_text += c
-                return supraline_text
+                output = self.append_char(output, '\ue6b7')
+        elif parent_name == 'unclear':
+            output = self.append_char(output, '\u0323')
+        print(node, parent_name, output)
         return output
 
     def generate_apparatus(self):
@@ -298,11 +311,7 @@ class EpiDoc2HTML(EpiDocTransformer):
 
     @staticmethod
     def unclear(node: Tag):
-        text = node.get_text().strip()
-        unclear_text = ''
-        for c in text:
-            unclear_text += c + '\u0323'
-        return unclear_text
+        return '', ''
 
     def space(self, node: Tag):
         attrs = node.attrs
@@ -400,13 +409,13 @@ class EpiDoc2HTML(EpiDocTransformer):
         if rend == 'box':
             return '', ''
         elif rend == 'paragraphos':
-            return f'{new_line}⸏⸏⸏⸏', ''
-        elif rend == f'{new_line}horizontal-rule':
-            return f'{new_line}⸏⸏⸏⸏⸏⸏⸏⸏', ''
+            return f'{new_line}⸏', ''
+        elif rend == f'horizontal-rule':
+            return f'{new_line}\ue0c5\ue0c5', ''
         elif rend == 'wavy-line':
             return f'{new_line}~~~~~~~~', ''
         elif rend == 'diple-obelismene':
-            return f'{new_line}⸐⸏⸏⸏', ''
+            return f'{new_line}\ue737', ''
         elif rend == 'coronis':
             return f'{new_line}⸎', ''
         else:
@@ -602,9 +611,9 @@ class EpiDoc2HTML(EpiDocTransformer):
                     if int(quantity) > 1:
                         unit += 's'
                     if precision_low:
-                        return f'<i>({precision_low} {quantity} {unit} {status})</i>', ''
+                        return f'<i>({precision_low} {quantity} {unit} {status}', ')</i>'
                     else:
-                        return f'<i>({quantity} {unit} {status})</i>', ''
+                        return f'<i>({quantity} {unit} {status}', ')</i>'
         else:
             return '[', ']'
 
