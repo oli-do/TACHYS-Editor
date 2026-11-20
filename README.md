@@ -3,14 +3,14 @@
 > A Qt-based desktop editor for encoding papyrological texts in **Leiden+** according to the **EpiDoc TEI-XML** standard.
 
 [![Stage](https://img.shields.io/badge/stage-beta-orange)](#about)
-[![Python Version](https://img.shields.io/badge/python-%E2%89%A5%203.9-blue)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-%E2%89%A5%203.13-blue)](https://www.python.org/)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 
 ---
 
 ## About
 
-**TACHYS Editor** is designed to make Leiden+ encoding as simple, correct, and fast as possible. 
+**TACHYS Editor** is designed to make Leiden+ encoding as simple, correct, and fast as possible.
 
 > [!NOTE]  
 > TACHYS Editor is currently in **Beta**. Features and grammar specifications are subject to change.
@@ -19,11 +19,11 @@
 ---
 
 ## Main Features
-
+- **Microsoft Word .docx support** *(Alpha)*: Convert your Leiden+ code to an easily editable papyrological edition.
 - **Live Debugging**: Real-time error highlighting for Leiden+ and EpiDoc XML.
 - **Extended & Improved Grammar**: Provides extended syntax features and fixes common Leiden+ encoding issues.
 - **EpiDoc-XML Injection**: Embed raw EpiDoc-XML tags directly inside Leiden+ syntax.
-- **IntelliPaste** *(Greek only / Beta)*: Smart paste (via `Ctrl+Shift+V`) featuring automatic lunate sigma conversion and character handling.
+- **IntelliPaste** *(Ancient Greek / Beta)*: Smart paste (via `Ctrl+Shift+V`) featuring automatic lunate sigma conversion and character handling.
 - **Orthographic Regularization Prediction**: Suggests regularized forms using a lightweight machine-learning model.
 - **Bidirectional Conversion**: EpiDoc-XML ↔ Leiden+
 - **HTML Preview** *(Beta)*: Preview a digital edition directly in your web browser.
@@ -31,9 +31,13 @@
   - Symbol (`<g type="...">`) autocompletion & suggestions.
   - Automatic line (`<lb/>`) and division (`<div/>`) numbering.
   - Automatic Byzantine numeral conversion *(Ancient Greek)*.
-  - Character whitelist filtering (currently for Latin, Coptic, Ancient Greek).
-  - Keyboard shortcuts for standard Leiden+ markup.
+  - Character whitelist filtering - currently for Coptic *(Beta)*, Latin and Ancient Greek.
+  - Customizable keyboard shortcuts for Leiden+ markup.
   - Apparatus Creator Tool: Generate apparatus tags with guided assistance
+
+<small>*(Ancient Greek)* Feature is currently exclusive to Ancient Greek language</br>
+*(Alpha)* Feature in early development - incomplete and potentially unstable (bugs or application crashes may occur)</br>
+*(Beta)* Feature in development - incomplete but mostly stable</small>
 
 ---
 
