@@ -12,3 +12,4 @@ lxml~=6.1.2
 numpy~=2.5.3
 requests~=2.34.2
 packaging~=26.3
+python-docx==1.2.0
